@@ -17,19 +17,24 @@ Claude Code ─────┘             │
                                └──> OpenAI embeddings
 ```
 
-Every memory is one self-contained sentence, tagged with the project it belongs to, who wrote it (`claude-web`, `chatgpt` or `claude-code`), when, and an embedding so it can be found by meaning rather than by exact words. Ask "what did we decide about the evaluation metric?" and it finds "switched primary metric to CIDEr" even though not a single word overlaps.
+Every memory is one self-contained sentence, tagged with the project it belongs to, who wrote it (`claude-web`, `chatgpt`, `claude-code`, or any other client), when, and an embedding so it can be found by meaning rather than by exact words. Ask "what did we decide about the evaluation metric?" and it finds "switched primary metric to CIDEr" even though not a single word overlaps.
 
 The server is deliberately dumb. It stores, embeds, searches, and checks for near-duplicates. It never runs an LLM of its own. When something looks like a duplicate, it hands the existing entry back to the assistant that called it and says "you decide": update the old one, or save again with clearer wording. The assistant already has the conversation context; the server does not need to.
 
-## The five tools
+## The tools
 
 | Tool | What it does |
 |---|---|
-| `save_memory` | Save one fact, decision or status. Refuses near-duplicates (cosine ≥ 0.9 by default) and returns the existing entry instead. |
-| `update_memory` | Rewrite an entry. The old version is archived automatically by a database trigger, because assistants sometimes "update" by writing something shorter. |
-| `search_memory` | Semantic search within one project. |
-| `recent_memories` | Newest first, no ranking. Good for "what happened this week." |
-| `delete_memory` | For things that were wrong or are truly dead. |
+| `save_memory` | Save one fact, decision or status, with a `kind`. Refuses near-duplicates (cosine ≥ 0.9 by default) and returns the existing entry instead. With `supersedes=<id>` it replaces an outdated entry while keeping the old one as history. |
+| `update_memory` | Correct wording or reclassify kind/tags. The old wording is archived automatically by a database trigger, because assistants sometimes "update" by writing something shorter. |
+| `retire_memory` | Mark an entry as no longer valid (a resolved blocker, a state that no longer applies) without deleting it. |
+| `search_memory` | Hybrid search within one project: meaning (pgvector) plus keywords (pg_trgm), fused with reciprocal rank fusion. Optional `kinds` filter; superseded entries only with `include_history`. |
+| `recent_memories` | Newest first by last change, no ranking. Good for "what happened this week." Same filters. |
+| `delete_memory` | For things that were wrong from the start. Outdated is not wrong: retire or supersede instead. |
+
+Every memory has a `kind`: `state`, `decision`, `blocker`, `context`, `log` or `session-summary`. Kinds matter because they age differently. A decision stays true until it is reversed; a state is wrong the moment the next one arrives; a blocker should disappear once solved. Instead of overwriting, a new state *supersedes* the old one, so normal search shows only what is true now while the path that led there stays queryable. (Same idea as the bi-temporal edges in [Graphiti](https://github.com/getzep/graphiti), scaled down to two columns.)
+
+Why hybrid search: embeddings are good at "what did we decide about evaluation?" and bad at exact names. Project vocabulary is full of exact names (`Memobase`, `emotion2vec`, `BERSt`), and short Chinese queries against mixed-language entries often score low on cosine similarity alone. Trigram matching catches those; RRF merges the two rankings without having to tune weights.
 
 Project names are whitelisted (`ALLOWED_PROJECTS`) so three assistants cannot invent three spellings of the same project and quietly split your memory into three piles. Yes, this happened during testing. Yes, the whitelist caught it.
 
@@ -37,7 +42,7 @@ Project names are whitelisted (`ALLOWED_PROJECTS`) so three assistants cannot in
 
 You need a Supabase project (free), an OpenAI key (for embeddings only; a one-time $5 lasts a very long time), and somewhere to run a Python process (Render free tier works).
 
-**1. Database.** In the Supabase SQL Editor, run `schema.sql`, then `migrations/001_history.sql`. Row Level Security is on with no public policies, so only your server can touch the table.
+**1. Database.** In the Supabase SQL Editor, run `schema.sql`, then the files in `migrations/` in order. Row Level Security is on with no public policies, so only your server can touch the table.
 
 **2. Environment.** `cp .env.example .env` and fill it in. `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`; it becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password.
 
@@ -84,7 +89,7 @@ The moment it clicked: Claude Code, running on a remote machine, wrote a batch o
 
 1. A `project_brief` tool that assembles "where are we": recent progress, open decisions, blockers, last session summary. Called at the start of every project conversation.
 2. Session summaries written automatically by Claude Code via a `Stop` hook, so the state is always fresh even if the SSH session dies.
-3. Fixed memory types (`state`, `decision`, `blocker`, `context`, `log`, `session-summary`) and type filtering, so a growing store does not drown search.
+3. ~~Fixed memory types and type filtering.~~ Done in migration 002, together with supersede/retire and hybrid search.
 4. Project registry in the database instead of an env var.
 
 **Stage 4 (someday):** OAuth instead of a secret path, a tiny dashboard, maybe Supabase Edge Functions instead of Render.
@@ -101,6 +106,7 @@ Projects I read while designing this: [AusDavo/mcp-memory-server](https://github
 server.py                    the MCP server
 schema.sql                   initial database setup
 migrations/001_history.sql   memory_history table + trigger
+migrations/002_kinds_validity_hybrid.sql   memory kinds, supersede/retire, hybrid search (backs up both tables first)
 requirements.txt
 .env.example
 CLAUDE.md                    instructions for Claude Code when working on this repo
