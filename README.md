@@ -92,7 +92,7 @@ The moment it clicked: Claude Code, running on a remote machine, wrote a batch o
 
 **Stage 4 (someday):** OAuth instead of a secret path, a tiny dashboard, maybe Supabase Edge Functions instead of Render.
 
-## Background
+## Inspiration
 
 Projects I read while designing this: [AusDavo/mcp-memory-server](https://github.com/AusDavo/mcp-memory-server) (same stack, taught me about embedding-model tracking and list coercion), [Caricalia/mcp-brain](https://github.com/Caricalia/mcp-brain) (cross-client architecture), [rnblanco/supa-brain](https://github.com/rnblanco/supa-brain) (tool design), and [open-brain-server](https://github.com/Bobby-cell-commits/open-brain-server) (dedup and pruning ideas).
 
