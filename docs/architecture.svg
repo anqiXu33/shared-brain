@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 900 1029" width="900" height="1029" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace">
+  <style>
+    .t { fill: #c9d1d9; font-size: 12px; }
+    .dim { fill: #6b7280; font-size: 12px; }
+    .sm { font-size: 11px; }
+    .b { font-weight: 700; }
+    .or { fill: #f0883e; } .bl { fill: #6ea8fe; } .pu { fill: #b392f0; } .gr { fill: #56d364; } .wh { fill: #e6edf3; }
+    .box { fill: none; stroke-width: 1.5; }
+    .dashbox { fill: none; stroke-width: 1.5; stroke-dasharray: 6 4; animation: dash 1.2s linear infinite; }
+    .flow { fill: none; stroke: #6b7280; stroke-width: 1.4; stroke-dasharray: 3 5; animation: dash 0.9s linear infinite; }
+    .flowp { fill: none; stroke: #8a72c2; stroke-width: 1.2; stroke-dasharray: 2 5; animation: dash 1.4s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -8; } }
+    .pulse { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+    .bar { transform-box: fill-box; transform-origin: left center; }
+    .b1 { animation: g1 4s ease-in-out infinite; }
+    .b2 { animation: g2 4s ease-in-out infinite; }
+    .b3 { animation: g3 4s ease-in-out infinite; }
+    @keyframes g1 { 0% { transform: scaleX(0.1); } 40%,85% { transform: scaleX(0.82); } 100% { transform: scaleX(0.1); } }
+    @keyframes g2 { 0%,15% { transform: scaleX(0.1); } 55%,85% { transform: scaleX(0.58); } 100% { transform: scaleX(0.1); } }
+    @keyframes g3 { 0%,35% { transform: scaleX(0.05); } 70%,85% { transform: scaleX(0.94); } 100% { transform: scaleX(0.05); } }
+    .l1 { animation: f1 10s linear infinite; } .l2 { animation: f2 10s linear infinite; }
+    .l3 { animation: f3 10s linear infinite; } .l4 { animation: f4 10s linear infinite; }
+    @keyframes f1 { 0%,4% { opacity: 0; } 8%,92% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes f2 { 0%,22% { opacity: 0; } 26%,92% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes f3 { 0%,40% { opacity: 0; } 44%,92% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes f4 { 0%,58% { opacity: 0; } 62%,92% { opacity: 1; } 100% { opacity: 0; } }
+    .cursor { animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .chip { fill: #1f2430; stroke: #3a4150; stroke-width: 1; }
+    .hit { animation: hit 10s ease-in-out infinite; }
+    @keyframes hit { 0%,12% { stroke: #3a4150; fill: #1f2430; } 20%,90% { stroke: #f778ba; fill: #2d1f2a; } 100% { stroke: #3a4150; fill: #1f2430; } }
+    .out { fill: #2d1f2a; stroke: #f778ba; stroke-width: 1.2; }
+    .fly1 { animation: fly1 10s ease-in-out infinite; }
+    @keyframes fly1 { 0%,22% { transform: translate(-134px,0px); opacity: 0; } 24% { opacity: 1; } 31%,92% { transform: translate(0,0); opacity: 1; } 100% { opacity: 0; } }
+    .fly2 { animation: fly2 10s ease-in-out infinite; }
+    @keyframes fly2 { 0%,34% { transform: translate(-134px,0px); opacity: 0; } 36% { opacity: 1; } 43%,92% { transform: translate(0,0); opacity: 1; } 100% { opacity: 0; } }
+    .fly3 { animation: fly3 10s ease-in-out infinite; }
+    @keyframes fly3 { 0%,46% { transform: translate(-250px,-52px); opacity: 0; } 48% { opacity: 1; } 55%,92% { transform: translate(0,0); opacity: 1; } 100% { opacity: 0; } }
+    .fly4 { animation: fly4 10s ease-in-out infinite; }
+    @keyframes fly4 { 0%,58% { transform: translate(-134px,-26px); opacity: 0; } 60% { opacity: 1; } 67%,92% { transform: translate(0,0); opacity: 1; } 100% { opacity: 0; } }
+    .fly5 { animation: fly5 10s ease-in-out infinite; }
+    @keyframes fly5 { 0%,70% { transform: translate(-134px,-52px); opacity: 0; } 72% { opacity: 1; } 79%,92% { transform: translate(0,0); opacity: 1; } 100% { opacity: 0; } }
+  </style>
+
+  <defs><linearGradient id="mix" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#56d364"/><stop offset="1" stop-color="#f0883e"/></linearGradient></defs>
+
+  <!-- window -->
+  <rect width="900" height="1029" rx="12" fill="#161a22"/>
+  <path d="M0 12 a12 12 0 0 1 12 -12 h876 a12 12 0 0 1 12 12 v16 h-900 z" fill="#232833"/>
+  <circle cx="18" cy="14" r="5" fill="#ff5f57"/><circle cx="34" cy="14" r="5" fill="#febc2e"/><circle cx="50" cy="14" r="5" fill="#28c840"/>
+  <text x="450" y="18" text-anchor="middle" class="dim sm">~/shared-brain · zsh</text>
+
+  <!-- header -->
+  <text x="450" y="56" text-anchor="middle" font-size="14" class="b"><tspan class="wh">SHARED-BRAIN</tspan><tspan fill="#6b7280">  ·  </tspan><tspan class="or">ANY ASSISTANT</tspan><tspan fill="#6b7280">  ·  </tspan><tspan class="gr">ONE MEMORY</tspan></text>
+  <line x1="24" y1="70" x2="876" y2="70" stroke="#3a4150" stroke-width="1.5"/>
+
+  <!-- legend -->
+  <rect x="40" y="85" width="9" height="9" fill="#f0883e"/><text x="56" y="94" class="t">mcp clients</text>
+  <rect x="238" y="85" width="9" height="9" fill="#6ea8fe"/><text x="254" y="94" class="t">mcp server</text>
+  <rect x="464" y="85" width="9" height="9" fill="#b392f0"/><text x="480" y="94" class="t">write rules</text>
+  <rect x="640" y="85" width="9" height="9" fill="#56d364"/><text x="656" y="94" class="t">supabase · postgres</text>
+
+  <!-- left rules panel -->
+  <rect x="24" y="112" width="230" height="732" class="box" stroke="#b392f0"/>
+  <text x="139" y="136" text-anchor="middle" class="pu b" font-size="13">WRITE RULES</text>
+  <text x="139" y="154" text-anchor="middle" class="t" style="fill:#b392f0">one memory · one kind</text>
+  <g class="t">
+    <text x="40" y="186" class="pu">◇ <tspan class="t">on save</tspan></text>
+    <text x="52" y="210">one self-contained</text>
+    <text x="52" y="234">statement, one kind:</text>
+    <text x="52" y="258" class="pu">state · decision</text>
+    <text x="52" y="282" class="pu">blocker · context</text>
+    <text x="52" y="306" class="pu">log · session-summary</text>
+    <text x="40" y="360" class="pu">◇ <tspan class="t">similar exists?</tspan></text>
+    <text x="52" y="384">save_memory rejected</text>
+    <text x="52" y="408" class="pu b">» status: duplicate</text>
+    <text x="52" y="432" class="pu b">» returns existing memory</text>
+    <text x="40" y="487" class="pu">◇ <tspan class="t">state changed?</tspan></text>
+    <text x="52" y="511">save_memory(supersedes)</text>
+    <text x="52" y="535" class="dim">old row: superseded_by set</text>
+    <text x="52" y="559">hidden by default</text>
+    <text x="40" y="614" class="pu">◇ <tspan class="t">no longer valid?</tspan></text>
+    <text x="52" y="638">retire_memory</text>
+    <text x="52" y="662" class="dim">old row: valid_until = now</text>
+    <text x="52" y="686">hidden by default</text>
+    <text x="40" y="740" class="pu">◇ <tspan class="t">content wrong?</tspan></text>
+    <text x="52" y="764">update_memory</text>
+    <text x="52" y="788" class="dim">trigger copies old content</text>
+    <text x="52" y="812" class="gr">→ memory_history</text>
+  </g>
+
+  <!-- rules → server -->
+  <path d="M254 300 H300" class="flowp"/>
+  <path d="M254 470 H300" class="flowp"/>
+
+  <!-- clients -->
+  <rect x="280" y="112" width="140" height="78" class="box" stroke="#f0883e"/>
+  <text x="350" y="136" text-anchor="middle" class="or b">Claude</text>
+  <text x="350" y="156" text-anchor="middle" class="t">web · desktop</text>
+  <circle cx="318" cy="172" r="3.5" fill="#56d364" class="pulse"/><text x="356" y="176" text-anchor="middle" class="dim">claude</text>
+
+  <rect x="432" y="112" width="140" height="78" class="box" stroke="#f0883e"/>
+  <text x="502" y="136" text-anchor="middle" class="or b">ChatGPT</text>
+  <text x="502" y="156" text-anchor="middle" class="t">desktop app</text>
+  <circle cx="467" cy="172" r="3.5" fill="#56d364" class="pulse"/><text x="508" y="176" text-anchor="middle" class="dim">chatgpt</text>
+
+  <rect x="584" y="112" width="140" height="78" class="box" stroke="#f0883e"/>
+  <text x="654" y="136" text-anchor="middle" class="or b">Claude Code</text>
+  <text x="654" y="156" text-anchor="middle" class="t">CLI · IDE</text>
+  <circle cx="612" cy="172" r="3.5" fill="#56d364" class="pulse"/><text x="660" y="176" text-anchor="middle" class="dim">claude-code</text>
+
+  <rect x="736" y="112" width="140" height="78" class="dashbox" stroke="#f0883e"/>
+  <text x="806" y="136" text-anchor="middle" class="or b">+ any client</text>
+  <text x="806" y="156" text-anchor="middle" class="t">add MCP config</text>
+  <circle cx="768" cy="172" r="3.5" fill="#56d364" class="pulse"/><text x="812" y="176" text-anchor="middle" class="dim">your-agent</text>
+
+  <!-- client → server connectors -->
+  <path d="M350 190 V215 H578" class="flow"/>
+  <path d="M502 190 V215 H578" class="flow"/>
+  <path d="M654 190 V215 H578" class="flow"/>
+  <path d="M806 190 V215 H578" class="flow"/>
+  <path d="M578 215 V240" class="flow"/>
+  <circle r="3.5" fill="#6ea8fe"><animateMotion dur="2.4s" repeatCount="indefinite" path="M350 190 V215 H578 V240"/></circle>
+  <circle r="3.5" fill="#6ea8fe"><animateMotion dur="1.8s" begin="0.6s" repeatCount="indefinite" path="M502 190 V215 H578 V240"/></circle>
+  <circle r="3.5" fill="#6ea8fe"><animateMotion dur="1.8s" begin="1.2s" repeatCount="indefinite" path="M654 190 V215 H578 V240"/></circle>
+  <circle r="3.5" fill="#6ea8fe"><animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite" path="M806 190 V215 H578 V240"/></circle>
+  <circle r="3" fill="#56d364"><animateMotion dur="2.4s" begin="0.9s" repeatCount="indefinite" path="M578 240 V215 H350 V190"/></circle>
+  <circle r="3" fill="#56d364"><animateMotion dur="2.4s" begin="2.0s" repeatCount="indefinite" path="M578 240 V215 H806 V190"/></circle>
+  <text x="586" y="232" class="dim sm">MCP over HTTPS</text>
+
+  <!-- server -->
+  <rect x="300" y="240" width="374" height="150" class="box" stroke="#6ea8fe"/>
+  <text x="487" y="264" text-anchor="middle" class="bl b" font-size="13">MCP SERVER · hosted on Render</text>
+  <g class="t">
+    <text x="318" y="290"><tspan class="pu">› </tspan>search_memory</text>
+    <text x="332" y="305" class="dim sm">find by meaning + keywords</text>
+    <text x="496" y="290"><tspan class="pu">› </tspan>retire_memory</text>
+    <text x="510" y="305" class="dim sm">mark as no longer valid</text>
+    <text x="318" y="326"><tspan class="pu">› </tspan>save_memory</text>
+    <text x="332" y="341" class="dim sm">add one typed memory</text>
+    <text x="496" y="326"><tspan class="pu">› </tspan>recent_memories</text>
+    <text x="510" y="341" class="dim sm">list latest changes</text>
+    <text x="318" y="362"><tspan class="pu">› </tspan>update_memory</text>
+    <text x="332" y="377" class="dim sm">fix a wrong memory</text>
+    <text x="496" y="362"><tspan class="pu">› </tspan>delete_memory</text>
+    <text x="510" y="377" class="dim sm">remove for good</text>
+  </g>
+
+  <!-- server ↔ openai -->
+  <path d="M674 315 H722" class="flow"/>
+  <circle r="3" fill="#6ea8fe"><animateMotion dur="1.4s" repeatCount="indefinite" path="M674 315 H722"/></circle>
+  <circle r="3" fill="#56d364"><animateMotion dur="1.4s" begin="0.7s" repeatCount="indefinite" path="M722 315 H674"/></circle>
+  <text x="698" y="278" text-anchor="middle" class="dim sm">save</text>
+  <text x="698" y="292" text-anchor="middle" class="dim sm">update</text>
+  <text x="698" y="306" text-anchor="middle" class="dim sm">search</text>
+
+  <!-- openai -->
+  <rect x="722" y="262" width="154" height="92" class="box" stroke="#8b949e"/>
+  <text x="799" y="290" text-anchor="middle" class="wh b" style="font-size:13px">OpenAI API</text>
+  <text x="799" y="312" text-anchor="middle" class="dim sm">embeddings</text>
+  <text x="799" y="334" text-anchor="middle" class="t sm">text-embedding-3-small</text>
+
+  <!-- server ↔ supabase -->
+  <path d="M578 390 V420" class="flow"/>
+  <circle r="3.5" fill="#6ea8fe"><animateMotion dur="1.2s" repeatCount="indefinite" path="M578 390 V420"/></circle>
+  <circle r="3" fill="#56d364"><animateMotion dur="1.2s" begin="0.6s" repeatCount="indefinite" path="M578 420 V390"/></circle>
+  <text x="586" y="410" class="dim sm">Supabase API</text>
+
+  <!-- supabase -->
+  <rect x="300" y="420" width="556" height="424" class="box" stroke="#56d364"/>
+  <text x="578" y="446" text-anchor="middle" class="gr b" font-size="13">SUPABASE · Postgres</text>
+
+  <text x="324" y="482" class="dim sm" letter-spacing="1">TABLES</text>
+  <g class="t">
+    <rect x="324" y="490" width="120" height="92" rx="4" fill="#1a1e27" stroke="#3a4150" stroke-width="1"/>
+    <path d="M324 494 a4 4 0 0 1 4 -4 h112 a4 4 0 0 1 4 4 v16 h-120 z" fill="#232833"/>
+    <line x1="324" y1="510" x2="444" y2="510" stroke="#3a4150" stroke-width="1"/>
+    <line x1="325" y1="528" x2="443" y2="528" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="325" y1="546" x2="443" y2="546" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="325" y1="564" x2="443" y2="564" stroke="#2a2f3a" stroke-width="1"/>
+    <text x="334" y="504"><tspan class="t b">projects</tspan><tspan class="dim sm">  lookup</tspan></text>
+    <text x="334" y="523" class="dim sm"><tspan class="or">project-1</tspan></text>
+    <text x="334" y="541" class="dim sm"><tspan class="or">project-2</tspan></text>
+    <text x="334" y="559" class="dim sm"><tspan class="or">project-3</tspan></text>
+    <circle cx="336" cy="573" r="1.4" fill="#6b7280"/><circle cx="341" cy="573" r="1.4" fill="#6b7280"/><circle cx="346" cy="573" r="1.4" fill="#6b7280"/>
+    <rect x="458" y="490" width="250" height="92" rx="4" fill="#18231d" stroke="#56d364" stroke-width="1"/>
+    <path d="M458 494 a4 4 0 0 1 4 -4 h242 a4 4 0 0 1 4 4 v16 h-250 z" fill="#1f3a2b"/>
+    <line x1="458" y1="510" x2="708" y2="510" stroke="#56d364" stroke-width="1"/>
+    <line x1="459" y1="528" x2="707" y2="528" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="459" y1="546" x2="707" y2="546" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="459" y1="564" x2="707" y2="564" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="583" y1="511" x2="583" y2="581" stroke="#2a2f3a" stroke-width="1"/>
+    <text x="468" y="504"><tspan class="wh b">memories</tspan></text>
+    <text x="468" y="523" class="dim sm"><tspan class="t">content</tspan></text>
+    <text x="593" y="523" class="dim sm"><tspan class="t">embedding</tspan></text>
+    <text x="468" y="541" class="dim sm"><tspan class="or">project</tspan></text>
+    <text x="593" y="541" class="dim sm">kind</text>
+    <text x="468" y="559" class="dim sm">source</text>
+    <text x="593" y="559" class="dim sm">tags</text>
+    <text x="468" y="577" class="dim sm">superseded_by</text>
+    <text x="593" y="577" class="dim sm">valid_until</text>
+    <rect x="722" y="490" width="120" height="92" rx="4" fill="#1a1e27" stroke="#3a4150" stroke-width="1"/>
+    <path d="M722 494 a4 4 0 0 1 4 -4 h112 a4 4 0 0 1 4 4 v16 h-120 z" fill="#232833"/>
+    <line x1="722" y1="510" x2="842" y2="510" stroke="#3a4150" stroke-width="1"/>
+    <line x1="723" y1="528" x2="841" y2="528" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="723" y1="546" x2="841" y2="546" stroke="#2a2f3a" stroke-width="1"/>
+    <line x1="723" y1="564" x2="841" y2="564" stroke="#2a2f3a" stroke-width="1"/>
+    <text x="732" y="504"><tspan class="t b">memory_history</tspan></text>
+    <text x="732" y="523" class="dim sm">memory_id</text>
+    <text x="732" y="541" class="dim sm">old_content</text>
+    <text x="732" y="559" class="dim sm">old_source</text>
+    <text x="732" y="577" class="dim sm">replaced_at</text>
+  </g>
+
+  <line x1="316" y1="594" x2="840" y2="594" stroke="#3a4150" stroke-dasharray="3 4"/>
+
+  <text x="324" y="622" class="dim sm" letter-spacing="1">FUNCTION</text>
+  <text x="324" y="646" class="t"><tspan class="wh b">search_memories()</tspan><tspan class="dim">  per project · hides superseded / retired memories</tspan></text>
+
+  <text x="385" y="672" text-anchor="middle" class="gr sm">vector</text>
+  <text x="501" y="672" text-anchor="middle" class="or sm">keyword</text>
+  <text x="600" y="672" class="sm"><tspan class="wh b">RRF</tspan><tspan class="dim"> (top k = 5)</tspan></text>
+  <text x="324" y="696" class="dim sm">#1</text>
+  <text x="324" y="722" class="dim sm">#2</text>
+  <text x="324" y="774" class="dim sm">#30</text>
+  <circle cx="330" cy="739" r="1.4" fill="#6b7280"/><circle cx="330" cy="744" r="1.4" fill="#6b7280"/><circle cx="330" cy="749" r="1.4" fill="#6b7280"/>
+  <text x="443" y="738" text-anchor="middle" class="dim" style="font-size:14px">+</text>
+  <text x="568" y="738" text-anchor="middle" class="dim" style="font-size:14px">=</text>
+  <rect x="350" y="682" width="70" height="20" rx="4" class="chip hit"/><text x="385" y="696" text-anchor="middle" class="t">m3</text>
+  <rect x="350" y="708" width="70" height="20" rx="4" class="chip hit"/><text x="385" y="722" text-anchor="middle" class="t">m7</text>
+  <circle cx="385" cy="739" r="1.4" fill="#6b7280"/><circle cx="385" cy="744" r="1.4" fill="#6b7280"/><circle cx="385" cy="749" r="1.4" fill="#6b7280"/>
+  <rect x="350" y="760" width="70" height="20" rx="4" class="chip"/><text x="385" y="774" text-anchor="middle" class="t">m19</text>
+  <rect x="466" y="682" width="70" height="20" rx="4" class="chip hit"/><text x="501" y="696" text-anchor="middle" class="t">m7</text>
+  <rect x="466" y="708" width="70" height="20" rx="4" class="chip hit"/><text x="501" y="722" text-anchor="middle" class="t">m2</text>
+  <circle cx="501" cy="739" r="1.4" fill="#6b7280"/><circle cx="501" cy="744" r="1.4" fill="#6b7280"/><circle cx="501" cy="749" r="1.4" fill="#6b7280"/>
+  <rect x="466" y="760" width="70" height="20" rx="4" class="chip"/><text x="501" y="774" text-anchor="middle" class="t">m12</text>
+  <g class="fly1"><rect x="600" y="682" width="70" height="20" rx="4" class="chip out"/><text x="635" y="696" text-anchor="middle" class="t">m7</text><text x="682" y="696" class="dim sm">0.0325</text></g>
+  <g class="fly2"><rect x="600" y="708" width="70" height="20" rx="4" class="chip out"/><text x="635" y="722" text-anchor="middle" class="t">m2</text><text x="682" y="722" class="dim sm">0.0318</text></g>
+  <g class="fly3"><rect x="600" y="734" width="70" height="20" rx="4" class="chip out"/><text x="635" y="748" text-anchor="middle" class="t">m3</text><text x="682" y="748" class="dim sm">0.0315</text></g>
+  <g class="fly4"><rect x="600" y="760" width="70" height="20" rx="4" class="chip out"/><text x="635" y="774" text-anchor="middle" class="t">m5</text><text x="682" y="774" class="dim sm">0.0308</text></g>
+  <g class="fly5"><rect x="600" y="786" width="70" height="20" rx="4" class="chip out"/><text x="635" y="800" text-anchor="middle" class="t">m9</text><text x="682" y="800" class="dim sm">0.0159</text></g>
+  <text x="324" y="830" class="dim sm"><tspan class="t">score = 1/(60 + rank</tspan><tspan class="t" dy="3" style="font-size:8px">v</tspan><tspan class="t" dy="-3">) + 1/(60 + rank</tspan><tspan class="t" dy="3" style="font-size:8px">kw</tspan><tspan class="t" dy="-3">)</tspan></text>
+
+  <!-- session log -->
+  <rect x="24" y="864" width="852" height="100" class="box" stroke="#3a4150"/>
+  <rect x="44" y="856" width="126" height="16" fill="#161a22"/>
+  <text x="52" y="868" class="dim">example session</text>
+  <g class="t">
+    <text x="44" y="893" class="l1"><tspan class="dim">14:02:11  </tspan><tspan class="or">claude       </tspan>save_memory    project-1  kind=decision  <tspan class="gr">→ saved</tspan></text>
+    <text x="44" y="911" class="l2"><tspan class="dim">14:02:13  </tspan><tspan class="or">chatgpt      </tspan>search_memory  project-1                 <tspan class="gr">→ sees the same decision</tspan></text>
+    <text x="44" y="929" class="l3"><tspan class="dim">14:02:16  </tspan><tspan class="or">claude-code  </tspan>save_memory    project-2  similar active <tspan class="pu">→ duplicate</tspan></text>
+    <text x="44" y="947" class="l4"><tspan class="dim">14:02:19  </tspan><tspan class="or">your-agent   </tspan>search_memory  project-2                 <tspan class="gr">→ same memories, no code change</tspan></text>
+  </g>
+
+  <!-- prompt + status -->
+  <text x="24" y="991" class="t"><tspan class="gr">~ $ </tspan>claude mcp add --transport http shared-brain https://&lt;your-host&gt;/&lt;path&gt;</text>
+  <rect x="568" y="980" width="8" height="14" fill="#56d364" class="cursor"/>
+  <text x="24" y="1013" class="dim">clients <tspan class="bl">[any mcp]</tspan>    memory <tspan class="gr">[shared]</tspan>    search <tspan class="gr">[hybrid]</tspan>    history <tspan class="pu">[kept]</tspan></text>
+</svg>

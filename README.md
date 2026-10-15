@@ -10,12 +10,10 @@ shared-brain is a small, self-hosted memory layer that any MCP-capable assistant
 
 ## How it works
 
-```
-Claude web ──────┐
-ChatGPT desktop ─┼── MCP ──> server.py ──> Supabase (Postgres + pgvector)
-Claude Code ─────┘             │
-                               └──> OpenAI embeddings
-```
+<p align="center">
+  <img src="docs/architecture.svg" width="100%"
+       alt="shared-brain architecture: MCP clients → MCP server on Render (with OpenAI embeddings) → Supabase Postgres">
+</p>
 
 Every memory is one self-contained sentence, tagged with the project it belongs to, who wrote it (`claude-web`, `chatgpt`, `claude-code`, or any other client), when, and an embedding so it can be found by meaning rather than by exact words. Ask "what did we decide about the evaluation metric?" and it finds "switched primary metric to CIDEr" even though not a single word overlaps.
 
@@ -110,4 +108,5 @@ migrations/002_kinds_validity_hybrid.sql   memory kinds, supersede/retire, hybri
 requirements.txt
 .env.example
 CLAUDE.md                    instructions for Claude Code when working on this repo
+docs/architecture.svg        animated architecture diagram used in this README
 ```
