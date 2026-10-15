@@ -94,8 +94,6 @@ The moment it clicked: Claude Code, running on a remote machine, wrote a batch o
 
 ## Background
 
-My MSc thesis built a character memory bank for multilingual audio description: how to remember who is who across a film and retrieve the right facts at the right moment. This is the same problem wearing a different coat: how to organise, update and retrieve memory as it grows, for AI assistants instead of film characters. The thesis was the theory; this is the thing I actually use every day.
-
 Projects I read while designing this: [AusDavo/mcp-memory-server](https://github.com/AusDavo/mcp-memory-server) (same stack, taught me about embedding-model tracking and list coercion), [Caricalia/mcp-brain](https://github.com/Caricalia/mcp-brain) (cross-client architecture), [rnblanco/supa-brain](https://github.com/rnblanco/supa-brain) (tool design), and [open-brain-server](https://github.com/Bobby-cell-commits/open-brain-server) (dedup and pruning ideas).
 
 ## Repository
