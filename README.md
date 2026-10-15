@@ -18,10 +18,10 @@
 
 ## Features
 
-- **Any MCP client.** Claude, ChatGPT, Claude Code, or anything else that speaks MCP. Adding one is a URL in its settings, no code change.
-- **Hybrid search.** Semantic search (pgvector) plus keyword matching (pg_trgm), merged with reciprocal rank fusion. Finds both "what did we decide about evaluation?" and exact names like `emotion2vec`.
-- **Typed memories with history.** Every entry is a `state`, `decision`, `blocker`, `context`, `log` or `session-summary`. New states supersede old ones instead of overwriting them.
-- **Duplicate-aware.** Near-duplicates are rejected and handed back to the assistant, which decides whether to update, supersede or reword.
+- **Any MCP client**: Claude, ChatGPT, Claude Code and more. Adding one is a URL, no code change.
+- **Hybrid search**: pgvector semantic search plus pg_trgm keyword matching, merged with RRF.
+- **Typed memories with history**: new states supersede old ones instead of overwriting them.
+- **Duplicate-aware**: near-duplicates go back to the assistant to decide.
 
 ## Example
 
@@ -84,34 +84,28 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 
 | Tool | What it does |
 |---|---|
-| `save_memory` | Save one fact, decision or status, with a `kind`. |
-| `update_memory` | Correct wording or reclassify kind/tags. |
-| `retire_memory` | Mark an entry as no longer valid, without deleting it. |
+| `save_memory` | Save one typed entry. Rejects near-duplicates (cosine ≥ 0.9); `supersedes` replaces an outdated entry. |
+| `update_memory` | Fix wording or kind/tags. The old text is archived by a trigger. |
+| `retire_memory` | Mark an entry as no longer valid. Hidden, not deleted. |
 | `search_memory` | Hybrid search within one project. |
-| `recent_memories` | Newest first by last change. Good for "what happened this week." |
-| `delete_memory` | For things that were wrong from the start. |
+| `recent_memories` | Latest changes, newest first. |
+| `delete_memory` | Remove something that was wrong from the start. |
 
-- `save_memory` rejects near-duplicates (cosine ≥ 0.9 by default) and returns the existing entry. With `supersedes=<id>` it replaces an outdated entry and keeps the old one as history.
-- `update_memory` archives the old wording through a database trigger, because assistants sometimes "update" by writing something shorter.
-- Superseded and retired entries are hidden unless you pass `include_history`.
+Superseded and retired entries are hidden unless you pass `include_history`.
 
 ## Design choices
 
-**The server is deliberately dumb.** It stores, embeds, searches and checks for near-duplicates, but never runs an LLM of its own. The assistant already has the conversation context, so judgement calls go back to it.
-
-**Kinds, because memories age differently.** A decision stays true until it is reversed; a state is wrong the moment the next one arrives; a blocker should disappear once solved.
-
-**Supersede instead of overwrite.** Normal search shows only what is true now, while the path that led there stays queryable. Same idea as the bi-temporal edges in [Graphiti](https://github.com/getzep/graphiti), scaled down to two columns.
-
-**Hybrid search, because projects are full of exact names.** Embeddings handle meaning but miss names like `Memobase` or `BERSt`, and short Chinese queries against mixed-language entries often score low on cosine similarity alone. Trigram matching catches those; RRF merges the two rankings without tuning weights.
-
-**A project whitelist.** Without it, three assistants invent three spellings of the same project and quietly split your memory into three piles. This happened during testing.
+| Choice | Why |
+|---|---|
+| The server never runs an LLM | The assistant already has the context, so judgement calls (like duplicates) go back to it. |
+| Typed memories (`kind`) | Decisions, states and blockers age differently. |
+| Supersede, don't overwrite | Search shows what is true now; how you got there stays queryable. |
+| Vector + keyword search | Embeddings miss exact names like `emotion2vec` and short Chinese queries. |
+| Project whitelist | Stops assistants from splitting one project into three spellings. |
 
 ## Why I built this
 
-I use Claude on the web for thinking, ChatGPT for second opinions, and Claude Code for the actual work. None of them talk to each other, so every switch meant re-explaining the plan, the options already ruled out, and the next step.
-
-Now I mostly forget it is there. The moment it clicked: Claude Code, on a remote machine, wrote a batch of project state into memory late one night. The next morning I opened a fresh Claude web chat, asked "what's waiting on my decision?" and got a correct, prioritised list I had not typed.
+I use Claude for thinking, ChatGPT for second opinions and Claude Code for the actual work, and none of them talk to each other. Now project state that Claude Code saves late at night is there the next morning when I ask Claude web "what's waiting on my decision?"
 
 ## Things I learned the hard way
 
