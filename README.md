@@ -1,13 +1,15 @@
-# shared-brain
+<h1 align="center">shared-brain</h1>
 
-*Stop re-explaining your project to every AI you use.*
+<p align="center"><em>Stop re-explaining your project to every AI you use.</em></p>
 
-A self-hosted MCP server that gives Claude, ChatGPT, Claude Code and any other MCP client one shared long-term memory, kept separate for each project.
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
+  <img src="https://img.shields.io/badge/MCP-server-8A63D2" alt="MCP server">
+  <img src="https://img.shields.io/badge/Postgres-pgvector%20%2B%20pg__trgm-336791?logo=postgresql&logoColor=white" alt="Postgres with pgvector and pg_trgm">
+  <img src="https://img.shields.io/badge/Supabase-free%20tier-3ECF8E?logo=supabase&logoColor=white" alt="Supabase free tier">
+</p>
 
-![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
-![MCP](https://img.shields.io/badge/MCP-server-8A63D2)
-![Postgres](https://img.shields.io/badge/Postgres-pgvector%20%2B%20pg__trgm-336791?logo=postgresql&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-free%20tier-3ECF8E?logo=supabase&logoColor=white)
+<p align="center">A self-hosted MCP server that gives Claude, ChatGPT, Claude Code and any other MCP client one shared long-term memory, kept separate for each project.</p>
 
 <p align="center">
   <img src="docs/architecture.svg" width="100%"
