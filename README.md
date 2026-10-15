@@ -130,13 +130,13 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 
 ## Repository
 
-```
-server.py                    the MCP server
-schema.sql                   initial database setup
-migrations/001_history.sql   memory_history table + trigger
-migrations/002_kinds_validity_hybrid.sql   memory kinds, supersede/retire, hybrid search (backs up both tables first)
-requirements.txt
-.env.example
-CLAUDE.md                    instructions for Claude Code when working on this repo
-docs/architecture.svg        animated architecture diagram used in this README
-```
+| File | Purpose |
+|---|---|
+| `server.py` | The MCP server |
+| `schema.sql` | Initial database setup |
+| `migrations/001_history.sql` | `memory_history` table and trigger |
+| `migrations/002_kinds_validity_hybrid.sql` | Memory kinds, supersede/retire, hybrid search |
+| `requirements.txt` | Python dependencies |
+| `.env.example` | Environment variable template |
+| `CLAUDE.md` | Instructions for Claude Code when working on this repo |
+| `docs/architecture.svg` | The architecture diagram above |
