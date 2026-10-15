@@ -1,6 +1,6 @@
 # shared-brain
 
-*One memory. Three assistants. Zero "let me explain the project again from the top."*
+*Stop re-explaining your project to every AI you use.*
 
 I use Claude on the web for thinking, ChatGPT for second opinions, and Claude Code for the actual work. All three are smart. None of them talk to each other. Every time I switched tools I found myself re-explaining what the plan was, which options we had already ruled out, and what the next step was supposed to be.
 
