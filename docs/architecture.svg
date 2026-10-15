@@ -134,17 +134,17 @@
   <text x="487" y="264" text-anchor="middle" class="bl b" font-size="13">MCP SERVER · hosted on Render</text>
   <g class="t">
     <text x="318" y="290"><tspan class="pu">› </tspan>search_memory</text>
-    <text x="332" y="305" class="dim sm">find by meaning + keywords</text>
-    <text x="496" y="290"><tspan class="pu">› </tspan>retire_memory</text>
-    <text x="510" y="305" class="dim sm">mark as no longer valid</text>
+    <text x="332" y="305" class="dim sm">hybrid search</text>
+    <text x="490" y="290"><tspan class="pu">› </tspan>retire_memory</text>
+    <text x="504" y="305" class="dim sm">mark as no longer valid</text>
     <text x="318" y="326"><tspan class="pu">› </tspan>save_memory</text>
     <text x="332" y="341" class="dim sm">add one typed memory</text>
-    <text x="496" y="326"><tspan class="pu">› </tspan>recent_memories</text>
-    <text x="510" y="341" class="dim sm">list latest changes</text>
+    <text x="490" y="326"><tspan class="pu">› </tspan>recent_memories</text>
+    <text x="504" y="341" class="dim sm">list latest changes</text>
     <text x="318" y="362"><tspan class="pu">› </tspan>update_memory</text>
     <text x="332" y="377" class="dim sm">fix a wrong memory</text>
-    <text x="496" y="362"><tspan class="pu">› </tspan>delete_memory</text>
-    <text x="510" y="377" class="dim sm">remove for good</text>
+    <text x="490" y="362"><tspan class="pu">› </tspan>delete_memory</text>
+    <text x="504" y="377" class="dim sm">remove for good</text>
   </g>
 
   <!-- server ↔ openai -->
