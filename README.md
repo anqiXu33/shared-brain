@@ -76,8 +76,6 @@ The moment it clicked: Claude Code, running on a remote machine, wrote a batch o
 ## Things I learned the hard way
 
 - The `mcp` Python package shipped a 2.0 the week I built this and renamed `FastMCP`. Pin `mcp<2` or migrate. Pin.
-- zsh does not treat `#` as a comment in interactive shells. Do not paste tutorial commands with trailing comments.
-- macOS Finder will not let you name a file `.env`. The terminal will.
 - Claude Code passes list arguments as JSON strings sometimes. `server.py` coerces them.
 - "Don't store sensitive data" is not specific enough. An assistant will happily avoid the data itself and then store a paragraph *about* it. Spell out what sensitive means.
 
