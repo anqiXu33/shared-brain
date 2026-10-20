@@ -3,6 +3,7 @@
 <p align="center"><em>Stop re-explaining your project to every AI you use.</em></p>
 
 <p align="center">
+  <a href="https://github.com/anqiXu33/shared-brain/actions/workflows/ci.yml"><img src="https://github.com/anqiXu33/shared-brain/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/MCP-server-8A63D2" alt="MCP server">
   <img src="https://img.shields.io/badge/Postgres-pgvector%20%2B%20pg__trgm-336791?logo=postgresql&logoColor=white" alt="Postgres with pgvector and pg_trgm">
@@ -51,6 +52,13 @@ You need a Supabase project (free), an OpenAI key for embeddings, and Python 3.1
 ```bash
 pip install -r requirements.txt
 python server.py
+```
+
+Or with Docker:
+
+```bash
+docker build -t shared-brain .
+docker run --env-file .env -p 8000:8000 shared-brain
 ```
 
 Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http://localhost:8000/<MCP_SECRET_PATH>`.
@@ -140,6 +148,22 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 - [ ] Project registry in the database instead of an env var
 - [ ] Later: OAuth instead of a secret path, a small dashboard
 
+## Tests and CI
+
+Every push runs [GitHub Actions](.github/workflows/ci.yml):
+
+- **Database tests** on a real Postgres with pgvector: `schema.sql` and every migration are applied to a fresh database, then the tests check that hybrid search ranks exactly as the evaluation reproduces it (including keyword ties, the bug migration 004 fixed), hides superseded and retired memories, filters by kind and project, and archives old wording on update.
+- **Server unit tests** with a fake database: duplicate rejection, supersede guards, retire, and argument coercion through the real MCP tool layer.
+- **Docker**: builds the image, starts it with dummy credentials, and runs the MCP handshake and `tools/list` against it.
+
+Locally:
+
+```bash
+pip install -r requirements-dev.txt
+ruff check . && pytest            # database tests skip without DATABASE_URL
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pytest
+```
+
 ## Inspiration
 
 - [AusDavo/mcp-memory-server](https://github.com/AusDavo/mcp-memory-server): same stack; embedding-model tracking and list coercion
@@ -158,7 +182,10 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 | `migrations/003_eval.sql` | Read-only scoring function for the retrieval evaluation |
 | `migrations/004_deterministic_ties.sql` | Deterministic tie-breaking in hybrid search |
 | `eval/` | Retrieval evaluation: vector vs keyword vs hybrid ([how to run](eval/README.md)) |
-| `requirements.txt` | Python dependencies |
+| `tests/` | Database tests, server unit tests, HTTP smoke test |
+| `Dockerfile` | Container image for the server |
+| `.github/workflows/ci.yml` | Lint, tests and Docker build on every push |
+| `requirements.txt` | Python dependencies (`requirements-dev.txt` adds test tools) |
 | `.env.example` | Environment variable template |
 | `CLAUDE.md` | Instructions for Claude Code when working on this repo |
 | `docs/architecture.svg` | The architecture diagram above |

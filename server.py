@@ -16,14 +16,14 @@
 """
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
+from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from openai import OpenAI
 from pydantic import BeforeValidator
 from supabase import create_client
-from dotenv import load_dotenv
 
 load_dotenv()  # 读取同目录下的 .env 文件（如果存在）
 
@@ -70,7 +70,7 @@ KindList = Annotated[list[Kind] | None, BeforeValidator(_coerce_list)]
 
 def _now() -> str:
     # 用 Z 结尾而不是 +00:00：时间会拼进 PostgREST 的查询参数，"+" 在 URL 里可能被当成空格
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 def embed(text: str) -> list[float]:
@@ -161,7 +161,8 @@ def save_memory(
         if not old:
             return {"status": "not_found", "id": supersedes, "hint": "The memory to supersede does not exist."}
         if old["project"] != project:
-            return {"status": "error", "hint": f"Memory {supersedes} belongs to project '{old['project']}', not '{project}'."}
+            return {"status": "error",
+                    "hint": f"Memory {supersedes} belongs to project '{old['project']}', not '{project}'."}
         if old.get("superseded_by"):
             return {"status": "error", "hint": f"Memory {supersedes} is already superseded by {old['superseded_by']}."}
 

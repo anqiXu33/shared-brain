@@ -19,7 +19,7 @@ import argparse
 import json
 import random
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Must mirror search_memories in migrations/004_deterministic_ties.sql
@@ -86,7 +86,7 @@ def mean(xs):
 def paired_bootstrap(a, b, n=2000, seed=0):
     """95% CI of mean(a - b), resampling queries."""
     rng = random.Random(seed)
-    d = [x - y for x, y in zip(a, b)]
+    d = [x - y for x, y in zip(a, b, strict=True)]
     stats = sorted(mean([d[rng.randrange(len(d))] for _ in d]) for _ in range(n))
     return mean(d), stats[int(0.025 * n)], stats[int(0.975 * n) - 1]
 
@@ -109,7 +109,7 @@ def embed_all(oai, texts, cache_path):
     for i in range(0, len(missing), 100):
         batch = missing[i:i + 100]
         res = oai.embeddings.create(model=EMBED_MODEL, input=batch)
-        for t, d in zip(batch, res.data):
+        for t, d in zip(batch, res.data, strict=True):
             cache[f"{EMBED_MODEL}::{t}"] = d.embedding
     if missing:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +124,7 @@ def fmt_ci(t):
 
 
 def write_summary(path, per_query, k, n_boot, run_meta):
-    lines = [f"# Retrieval evaluation", "",
+    lines = ["# Retrieval evaluation", "",
              f"Run {run_meta['time']} · {len(per_query)} queries · k = {k} · "
              f"embedding {EMBED_MODEL} · RRF k = {RRF_K}, {CANDIDATES} candidates per list, "
              f"keyword threshold {KW_THRESHOLD}", ""]
@@ -165,10 +165,11 @@ def main():
     ap.add_argument("--bootstrap", type=int, default=2000)
     args = ap.parse_args()
 
+    import os
+
     from dotenv import load_dotenv
     from openai import OpenAI
     from supabase import create_client
-    import os
     load_dotenv(ROOT.parent / ".env")
     db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
     oai = OpenAI()
@@ -214,7 +215,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     (out / "per_query.jsonl").write_text(
         "\n".join(json.dumps(q, ensure_ascii=False) for q in per_query) + "\n")
-    meta = {"time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    meta = {"time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
             "skipped": skipped, "repro_ok": repro_ok}
     write_summary(out / "summary.md", per_query, args.k, args.bootstrap, meta)
     print((out / "summary.md").read_text())

@@ -8,7 +8,6 @@ same memory and see which part disagrees.
     python eval/diagnose_repro.py --ids q06 q07  # specific queries
 """
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
