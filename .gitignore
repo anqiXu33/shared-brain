@@ -1,3 +1,6 @@
 .env
 __pycache__/
 *.pyc
+eval/queries.jsonl
+eval/cache/
+eval/results/per_query.jsonl
