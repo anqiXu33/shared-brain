@@ -13,7 +13,7 @@ create table if not exists memories (
   content         text not null,                              -- 记忆本身，一句自包含的话
   project         text not null,                              -- 属于哪个项目（必填）
   tags            text[] not null default '{}',               -- 更细的分类，可选
-  source          text not null                               -- 谁写的，只允许三个值
+  source          text not null                               -- 谁写的；这里限三个值，迁移 002 已放开为任意非空值
                   check (source in ('claude-web', 'chatgpt', 'claude-code')),
   created_at      timestamptz not null default now(),         -- 创建时间
   updated_at      timestamptz not null default now(),         -- 最后修改时间
