@@ -137,6 +137,7 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 | `migrations/001_history.sql` | `memory_history` table and trigger |
 | `migrations/002_kinds_validity_hybrid.sql` | Memory kinds, supersede/retire, hybrid search |
 | `migrations/003_eval.sql` | Read-only scoring function for the retrieval evaluation |
+| `migrations/004_deterministic_ties.sql` | Deterministic tie-breaking in hybrid search |
 | `eval/` | Retrieval evaluation: vector vs keyword vs hybrid ([how to run](eval/README.md)) |
 | `requirements.txt` | Python dependencies |
 | `.env.example` | Environment variable template |

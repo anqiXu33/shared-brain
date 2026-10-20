@@ -22,7 +22,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Must mirror search_memories in migrations/002_kinds_validity_hybrid.sql
+# Must mirror search_memories in migrations/004_deterministic_ties.sql
 RRF_K = 60
 CANDIDATES = 30
 KW_THRESHOLD = 0.3
@@ -35,13 +35,16 @@ ROOT = Path(__file__).resolve().parent
 
 
 # ---------- ranking (pure functions, mirror the SQL) ----------
+# Ties are broken exactly as in migrations/004_deterministic_ties.sql:
+# vector by (distance, id); keyword by (score desc, distance, id). uuid order in
+# Postgres is byte order, which matches comparing the lowercase hex strings.
 def rank_vector(rows):
-    return [r["id"] for r in sorted(rows, key=lambda r: -r["similarity"])]
+    return [r["id"] for r in sorted(rows, key=lambda r: (-r["similarity"], r["id"]))]
 
 
 def rank_keyword(rows):
     kw = [r for r in rows if r["keyword_score"] >= KW_THRESHOLD]
-    return [r["id"] for r in sorted(kw, key=lambda r: -r["keyword_score"])]
+    return [r["id"] for r in sorted(kw, key=lambda r: (-r["keyword_score"], -r["similarity"], r["id"]))]
 
 
 def rank_hybrid(rows):
@@ -52,8 +55,8 @@ def rank_hybrid(rows):
         for i, mid in enumerate(ranking, 1):
             score[mid] = score.get(mid, 0.0) + 1.0 / (RRF_K + i)
     updated = {r["id"]: r["updated_at"] for r in rows}
-    # SQL: order by fscore desc, updated_at desc
-    return sorted(score, key=lambda m: (-score[m], _neg_time(updated[m])))
+    # SQL: order by fscore desc, updated_at desc, id
+    return sorted(score, key=lambda m: (-score[m], _neg_time(updated[m]), m))
 
 
 def _neg_time(ts):

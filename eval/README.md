@@ -12,7 +12,7 @@ Metrics per method: Hit@5, Recall@5 (capped at the number of relevant memories),
 
 ## Run it
 
-1. In the Supabase SQL Editor, run `migrations/003_eval.sql` once. It only adds a read-only function.
+1. In the Supabase SQL Editor, run `migrations/003_eval.sql` once (it only adds a read-only function), and `migrations/004_deterministic_ties.sql` if you haven't yet.
 2. Put your labeled queries in `eval/queries.jsonl` (gitignored), one per line:
 
    ```json
@@ -29,3 +29,5 @@ Metrics per method: Hit@5, Recall@5 (capped at the number of relevant memories),
 Output goes to `eval/results/`: `summary.md` has aggregate numbers only; `per_query.jsonl` has every query and each method's top 5, and stays local.
 
 The script also calls the live `search_memories` and checks that its local hybrid ranking matches it, so the comparison is against the real search, not a reimplementation. Labeled memories that have since been superseded or retired are reported and dropped.
+
+If the reproduction check reports differences, `python eval/diagnose_repro.py` lists, for each affected query, the live and local similarity, keyword score and fused score side by side, flagging whichever disagrees.
