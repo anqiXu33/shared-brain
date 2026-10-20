@@ -100,8 +100,26 @@ Superseded and retired entries are hidden unless you pass `include_history`.
 | The server never runs an LLM | The assistant already has the context, so judgement calls (like duplicates) go back to it. |
 | Typed memories (`kind`) | Decisions, states and blockers age differently. |
 | Supersede, don't overwrite | Search shows what is true now; how you got there stays queryable. |
-| Vector + keyword search | Embeddings miss exact names like `emotion2vec` and short Chinese queries. |
+| Vector + keyword search | Embeddings do find exact names and short Chinese queries, but often rank them lower; keyword matching pulls them to the top (see Evaluation). |
 | Project whitelist | Stops assistants from splitting one project into three spellings. |
+
+## Evaluation
+
+52 hand-labeled queries over my own memories (about 220 across three projects), comparing the three ways the server could rank results. Top 5, the same as the default `k`.
+
+| Method | Hit@5 | Recall@5 | MRR |
+|---|---|---|---|
+| Vector only | 0.904 | 0.728 | 0.801 |
+| Keyword only | 0.635 | 0.560 | 0.598 |
+| **Hybrid (what the server uses)** | 0.885 | 0.743 | **0.854** |
+
+- Hybrid ranks the right memory higher than vector alone: MRR +0.053, paired bootstrap 95% CI [+0.002, +0.110]. Whether it is found at all (Hit@5, Recall@5) is the same.
+- The gain comes from exact names (MRR 0.85 → 0.96) and short Chinese queries (0.89 → 0.96). Vector search already found them; it just ranked them lower.
+- Reworded questions still depend on vectors alone: keyword matching finds the answer for 2 of 16.
+
+Caveats: a small set, one user's data, and the queries were drafted while looking at the memories, which favours wording that overlaps with the text.
+
+Building the evaluation also found a bug. On short queries, many memories get exactly the same keyword score, and the search broke those ties arbitrarily, so which of them got the keyword boost changed from run to run. Migration 004 breaks ties by vector distance; afterwards the live search matched the offline reproduction on 52 of 52 queries. Code and how to run it: [`eval/`](eval/README.md).
 
 ## Why I built this
 
@@ -116,6 +134,7 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 ## Roadmap
 
 - [x] Memory kinds, supersede/retire, hybrid search (migration 002)
+- [x] Retrieval evaluation and deterministic tie-breaking (migrations 003, 004)
 - [ ] `project_brief` tool: recent progress, open decisions, blockers and last session summary in one call
 - [ ] Session summaries written automatically by Claude Code via a `Stop` hook
 - [ ] Project registry in the database instead of an env var
