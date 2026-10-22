@@ -97,6 +97,7 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 | `retire_memory` | Mark an entry as no longer valid. Hidden, not deleted. |
 | `search_memory` | Hybrid search within one project. |
 | `recent_memories` | Latest changes, newest first. |
+| `project_brief` | One call for the whole picture: current state, open blockers, latest decisions, last session summary. |
 | `delete_memory` | Remove something that was wrong from the start. |
 | `list_projects` | Registered projects with a one-line description and aliases each. |
 | `add_project` | Register a new project, optionally with aliases. Rejects badly formed names and asks first when a similar name exists (`scai-lab` vs `scai`). |
@@ -146,7 +147,7 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 
 - [x] Memory kinds, supersede/retire, hybrid search (migration 002)
 - [x] Retrieval evaluation and deterministic tie-breaking (migrations 003, 004)
-- [ ] `project_brief` tool: recent progress, open decisions, blockers and last session summary in one call
+- [x] `project_brief` tool: recent progress, open decisions, blockers and last session summary in one call
 - [ ] Session summaries written automatically by Claude Code via a `Stop` hook
 - [x] Project registry in the database instead of an env var (migration 005)
 - [x] Project aliases, so any assistant resolves a nickname to the right project (migration 006)

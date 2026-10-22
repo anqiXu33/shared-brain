@@ -38,7 +38,11 @@ class FakeQuery:
         self.filters.append(lambda r: r.get(col) in vals)
         return self
 
-    def or_(self, _expr):  # only used for the validity window; every fake row is active
+    def or_(self, expr):
+        """Only the validity window is used: 'valid_until.is.null,valid_until.gt.<ts>'."""
+        assert expr.startswith("valid_until.is.null,valid_until.gt.")
+        ts = expr.rsplit(".gt.", 1)[1]
+        self.filters.append(lambda r: r.get("valid_until") is None or r["valid_until"] > ts)
         return self
 
     def limit(self, _n):
@@ -200,7 +204,8 @@ def test_mcp_layer_rejects_unknown_kind(fake):
 def test_all_tools_registered():
     names = {t.name for t in asyncio.run(server.mcp.list_tools())}
     assert names == {"save_memory", "update_memory", "retire_memory", "search_memory",
-                     "recent_memories", "delete_memory", "list_projects", "add_project", "add_alias"}
+                     "recent_memories", "delete_memory", "list_projects", "add_project", "add_alias",
+                     "project_brief"}
 
 
 def test_supersede_marks_old_row_and_ignores_it_for_dedup(fake):
@@ -234,6 +239,38 @@ def test_retire_is_idempotent(fake):
 
 def test_update_requires_a_change(fake):
     assert server.update_memory("any")["status"] == "error"
+
+
+# ---------- project brief ----------
+def test_project_brief_groups_active_memories_by_kind(fake):
+    s1 = server.save_memory("state one", "p", "test", kind="state")["memory"]["id"]
+    server.save_memory("state two", "p", "test", kind="state", supersedes=s1)
+    for i in range(7):
+        server.save_memory(f"decision {i}", "p", "test", kind="decision")
+    b = server.save_memory("blocked on x", "p", "test", kind="blocker")["memory"]["id"]
+    server.save_memory("resolved blocker", "p", "test", kind="blocker")
+    server.retire_memory(b)
+    server.save_memory("summary old", "p", "test", kind="session-summary")
+    server.save_memory("summary new", "p", "test", kind="session-summary")
+    server.save_memory("other project", "other", "test", kind="state")
+    for r in fake.rows:  # make updated_at distinct so ordering is meaningful
+        r["updated_at"] = f"t{fake.rows.index(r):03d}"
+
+    brief = call_tool("project_brief", {"project": "Pee", "max_decisions": 3})
+    assert brief["project"] == "p"
+    assert [m["content"] for m in brief["state"]] == ["state two"]
+    assert [m["content"] for m in brief["blockers"]] == ["resolved blocker"]
+    assert [m["content"] for m in brief["decisions"]] == ["decision 6", "decision 5", "decision 4"]
+    assert brief["last_session_summary"]["content"] == "summary new"
+    assert brief["counts"] == {"blocker": 1, "decision": 7, "session-summary": 2, "state": 1}
+    assert brief["last_updated"] == max(r["updated_at"] for r in fake.rows if r["project"] == "p"
+                                        and not r["superseded_by"] and not r["valid_until"])
+
+
+def test_project_brief_empty_project(fake):
+    brief = server.project_brief("other")
+    assert brief["state"] == [] and brief["last_session_summary"] is None
+    assert brief["counts"] == {} and brief["last_updated"] is None
 
 
 # ---------- project registry ----------

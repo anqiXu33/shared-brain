@@ -378,6 +378,41 @@ def recent_memories(
 
 
 @mcp.tool()
+def project_brief(project: str, max_decisions: int = 5, max_logs: int = 5) -> dict:
+    """One-call overview of a project: where it stands, what is blocking, the latest decisions
+    and the last session summary. Call this at the start of a conversation about a project,
+    before answering "what did we decide" or "where were we", instead of several separate searches.
+    Only active memories are included (superseded or retired ones are left out).
+
+    project: registered name or alias.
+    max_decisions / max_logs: how many of the newest decisions and logs to include.
+    Returns: {"project", "state": [...], "blockers": [...], "decisions": [...],
+              "last_session_summary": {...} | None, "logs": [...], "context": [...],
+              "counts": {kind: n}, "last_updated": iso timestamp | None}.
+    """
+    project = _resolve_project(project)
+    res = (db.table("memories").select(COLUMNS).eq("project", project)
+             .is_("superseded_by", "null").or_(f"valid_until.is.null,valid_until.gt.{_now()}")
+             .order("updated_at", desc=True).limit(300).execute())
+    rows = [_row(r) for r in res.data]
+    by_kind: dict[str, list[dict]] = {}
+    for r in rows:
+        by_kind.setdefault(r["kind"], []).append(r)
+    summaries = by_kind.get("session-summary", [])
+    return {
+        "project": project,
+        "state": by_kind.get("state", []),
+        "blockers": by_kind.get("blocker", []),
+        "decisions": by_kind.get("decision", [])[:max_decisions],
+        "last_session_summary": summaries[0] if summaries else None,
+        "logs": by_kind.get("log", [])[:max_logs],
+        "context": by_kind.get("context", []),
+        "counts": {k: len(v) for k, v in sorted(by_kind.items())},
+        "last_updated": rows[0]["updated_at"] if rows else None,
+    }
+
+
+@mcp.tool()
 def delete_memory(memory_id: str) -> dict:
     """Permanently delete one memory by id. Only for entries that were wrong from the start
     or saved by mistake. For things that are merely outdated, use retire_memory or supersede them."""
