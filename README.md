@@ -68,7 +68,7 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 
 1. **Database.** Row Level Security is on with no public policies, so only your server can touch the tables.
 
-2. **Environment.** `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`. It becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password. Projects live in the `projects` table: migration 005 registers every project that already has memories, and new ones are added with the `add_project` tool, no redeploy needed. (`ALLOWED_PROJECTS` is only a fallback for databases that have not run migration 005.)
+2. **Environment.** `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`. It becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password. Projects live in the `projects` table: migration 005 registers every project that already has memories, and new ones are added with the `add_project` tool, no redeploy needed. (`ALLOWED_PROJECTS` is only a fallback for databases that have not run migration 005.) Migration 006 adds project aliases: every tool that takes a `project` accepts an alias too, so "心力球" resolves to `ai-pendant` for every assistant, not just the one that happened to know the nickname.
 
 3. **Deploy.** Push to GitHub and create a Render Web Service from the repo: start command `python server.py`, the same env vars, plus `PYTHON_VERSION=3.12.0`. Free instances sleep after 15 minutes of inactivity and take a few seconds to wake up.
 
@@ -98,8 +98,9 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 | `search_memory` | Hybrid search within one project. |
 | `recent_memories` | Latest changes, newest first. |
 | `delete_memory` | Remove something that was wrong from the start. |
-| `list_projects` | Registered projects with a one-line description each. |
-| `add_project` | Register a new project. Rejects badly formed names and asks first when a similar name exists (`scai-lab` vs `scai`). |
+| `list_projects` | Registered projects with a one-line description and aliases each. |
+| `add_project` | Register a new project, optionally with aliases. Rejects badly formed names and asks first when a similar name exists (`scai-lab` vs `scai`). |
+| `add_alias` | Record another name the user uses for a project. From then on it works as `project` everywhere; an alias cannot point to two projects. |
 
 Superseded and retired entries are hidden unless you pass `include_history`.
 
@@ -148,6 +149,7 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 - [ ] `project_brief` tool: recent progress, open decisions, blockers and last session summary in one call
 - [ ] Session summaries written automatically by Claude Code via a `Stop` hook
 - [x] Project registry in the database instead of an env var (migration 005)
+- [x] Project aliases, so any assistant resolves a nickname to the right project (migration 006)
 - [ ] Later: OAuth instead of a secret path, a small dashboard
 
 ## Tests and CI
@@ -183,6 +185,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pytest
 | `migrations/002_kinds_validity_hybrid.sql` | Memory kinds, supersede/retire, hybrid search |
 | `migrations/003_eval.sql` | Read-only scoring function for the retrieval evaluation |
 | `migrations/004_deterministic_ties.sql` | Deterministic tie-breaking in hybrid search |
+| `migrations/005_projects.sql` | `projects` table and foreign key from memories |
+| `migrations/006_project_aliases.sql` | `aliases` column on `projects` |
 | `eval/` | Retrieval evaluation: vector vs keyword vs hybrid ([how to run](eval/README.md)) |
 | `tests/` | Database tests, server unit tests, HTTP smoke test |
 | `Dockerfile` | Container image for the server |

@@ -34,6 +34,16 @@ class FakeQuery:
         self.filters.append(lambda r: r.get(col) is None)
         return self
 
+    def in_(self, col, vals):
+        self.filters.append(lambda r: r.get(col) in vals)
+        return self
+
+    def or_(self, _expr):  # only used for the validity window; every fake row is active
+        return self
+
+    def limit(self, _n):
+        return self
+
     def order(self, col, desc=False):
         self.sort = (col, desc)
         return self
@@ -43,9 +53,11 @@ class FakeQuery:
             raise APIError({"code": "PGRST205", "message": "Could not find the table 'public.projects'"})
         table = self.db.tables[self.table]
         rows = [r for r in table if all(f(r) for f in self.filters)]
+        if self.table == "projects" and self.db.no_aliases_column and "aliases" in (self.payload or {}):
+            raise APIError({"code": "PGRST204", "message": "Could not find the 'aliases' column"})
         if self.op == "insert":
             if self.table == "projects":
-                row = {"created_at": "t", **self.payload}
+                row = {"created_at": "t", "aliases": [], **self.payload}
             else:
                 assert self.payload["project"] in {p["name"] for p in self.db.projects}, "foreign key"
                 row = {"id": str(uuid.uuid4()), "superseded_by": None, "valid_until": None,
@@ -83,7 +95,11 @@ class FakeTable:
 
 class FakeDB:
     def __init__(self):
-        self.tables = {"memories": [], "projects": [{"name": n, "description": ""} for n in ("p", "other")]}
+        self.tables = {"memories": [], "projects": [
+            {"name": "p", "description": "", "aliases": ["Pee", "项目P"]},
+            {"name": "other", "description": "", "aliases": []},
+        ]}
+        self.no_aliases_column = False  # migration 006 not run
         self.nearest = []  # what match_memories returns
         self.no_projects_table = False
         self.project_reads = 0
@@ -112,7 +128,7 @@ def fake(monkeypatch):
     monkeypatch.setattr(server, "db", db)
     monkeypatch.setattr(server, "embed", lambda text: [0.0] * 3)
     monkeypatch.setattr(server, "ALLOWED_PROJECTS", [])
-    monkeypatch.setattr(server, "_project_cache", {"names": None, "at": 0.0})
+    monkeypatch.setattr(server, "_project_cache", {"rows": None, "at": 0.0})
     return db
 
 
@@ -142,6 +158,7 @@ def test_env_whitelist_is_fallback_before_migration_005(fake, monkeypatch):
         server._check_project("Scai")
     assert [p["name"] for p in server.list_projects()] == ["scai", "portfolio"]
     assert server.add_project("new-one", "x", "test")["status"] == "error"
+    assert server._resolve_project("scai") == "scai"
 
 
 def test_row_rounds_scores_and_hides_empty_validity():
@@ -183,7 +200,7 @@ def test_mcp_layer_rejects_unknown_kind(fake):
 def test_all_tools_registered():
     names = {t.name for t in asyncio.run(server.mcp.list_tools())}
     assert names == {"save_memory", "update_memory", "retire_memory", "search_memory",
-                     "recent_memories", "delete_memory", "list_projects", "add_project"}
+                     "recent_memories", "delete_memory", "list_projects", "add_project", "add_alias"}
 
 
 def test_supersede_marks_old_row_and_ignores_it_for_dedup(fake):
@@ -221,7 +238,7 @@ def test_update_requires_a_change(fake):
 
 # ---------- project registry ----------
 def test_unknown_project_is_rejected_with_the_list(fake):
-    with pytest.raises(ValueError, match="Registered projects: other, p"):
+    with pytest.raises(ValueError, match=r"Registered projects .*: other, p \(Pee; 项目P\)"):
         server.save_memory("x", "wikilens", "test")
     assert fake.rows == []
 
@@ -229,7 +246,7 @@ def test_unknown_project_is_rejected_with_the_list(fake):
 def test_project_names_are_cached(fake):
     server._check_project("p")
     server._check_project("other")
-    server._check_project("p")
+    server._check_project("项目P")
     assert fake.project_reads == 1
 
 
@@ -237,6 +254,59 @@ def test_project_added_elsewhere_is_seen_without_waiting_for_cache(fake):
     server._check_project("p")  # cache now holds p, other
     fake.projects.append({"name": "fresh", "description": ""})  # e.g. ChatGPT registered it
     server._check_project("fresh")
+
+
+# ---------- aliases ----------
+@pytest.mark.parametrize("given", ["p", " p ", "Pee", "pee", "项目P", " 项目p"])
+def test_alias_resolves_to_project_name(fake, given):
+    assert server._resolve_project(given) == "p"
+    res = server.save_memory("via alias", given, "test")
+    assert res["status"] == "saved" and res["memory"]["project"] == "p"
+    assert server.recent_memories(given)[0]["project"] == "p"
+
+
+def test_alias_added_elsewhere_is_seen_without_waiting_for_cache(fake):
+    server._check_project("p")
+    fake.projects[1]["aliases"].append("那个")  # ChatGPT added it
+    assert server._resolve_project("那个") == "other"
+
+
+def test_add_alias(fake):
+    res = call_tool("add_alias", {"project": "Pee", "alias": " 小p "})
+    assert res["status"] == "added" and res["project"]["aliases"] == ["Pee", "项目P", "小p"]
+    assert server._resolve_project("小P") == "p"
+    assert server.add_alias("p", "小p")["status"] == "exists"
+    assert server.add_alias("p", "P")["status"] == "error"  # same as the name
+    assert server.add_alias("other", "pee")["status"] == "error"  # taken by p
+    assert server.add_alias("other", "p")["status"] == "error"  # a project name
+    assert server.add_alias("other", "  ")["status"] == "error"
+    with pytest.raises(ValueError):
+        server.add_alias("nope", "x")
+
+
+def test_add_project_with_aliases(fake):
+    res = call_tool("add_project", {"name": "wear", "description": "d", "source": "test",
+                                    "aliases": '["心力球", "心力球 ", "WEAR", "", "pendant"]'})
+    assert res["status"] == "added" and res["project"]["aliases"] == ["心力球", "pendant"]
+    assert server._resolve_project("心力球") == "wear"
+    assert server.add_project("wear2", "d", "test", aliases=["Pee"], force=True)["status"] == "error"
+    assert len(fake.projects) == 3
+
+
+def test_list_projects_includes_aliases(fake):
+    assert [(p["name"], p["aliases"]) for p in server.list_projects()] == [("other", []), ("p", ["Pee", "项目P"])]
+
+
+def test_aliases_before_migration_006(fake):
+    fake.no_aliases_column = True
+    for p in fake.projects:
+        del p["aliases"]  # rows come back without the column
+    assert server._resolve_project("p") == "p"
+    assert server.list_projects()[1]["aliases"] == []
+    assert server.add_project("plain", "d", "test")["status"] == "added"
+    res = server.add_project("withalias", "d", "test", aliases=["x"])
+    assert res["status"] == "error" and "006" in res["hint"]
+    assert "006" in server.add_alias("p", "x")["hint"]
 
 
 def test_add_project_then_save(fake):

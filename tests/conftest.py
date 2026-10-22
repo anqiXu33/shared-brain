@@ -22,6 +22,7 @@ SQL_FILES = [
     "migrations/003_eval.sql",
     "migrations/004_deterministic_ties.sql",
     "migrations/005_projects.sql",
+    "migrations/006_project_aliases.sql",
 ]
 
 

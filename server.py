@@ -3,7 +3,7 @@
 架构：Claude 网页版 / ChatGPT / Claude Code / 其他 MCP 客户端 --MCP--> 本 server --> Supabase (pgvector + pg_trgm)
                                                                            +--> OpenAI embedding
 
-需要数据库已运行 schema.sql、migrations/001、002；项目注册表需要 005。
+需要数据库已运行 schema.sql、migrations/001、002；项目注册表需要 005，项目别名需要 006。
 
 环境变量（写在 .env，或托管平台后台）：
   SUPABASE_URL               Supabase 项目地址
@@ -84,40 +84,101 @@ def embed(text: str) -> list[float]:
     return oai.embeddings.create(model=EMBED_MODEL, input=text).data[0].embedding
 
 
-# 项目名清单：读 projects 表，短暂缓存，避免每次调用都多查一次数据库
-_project_cache: dict = {"names": None, "at": 0.0}
+# 项目清单（名字 + 别名）：读 projects 表，短暂缓存，避免每次调用都多查一次数据库
+_project_cache: dict = {"rows": None, "at": 0.0}
 _MISSING_TABLE = {"PGRST205", "42P01"}  # projects 表不存在（迁移 005 还没运行）
+_MISSING_COLUMN = {"PGRST204", "42703"}  # aliases 列不存在（迁移 006 还没运行）
 
 
-def _project_names(refresh: bool = False) -> list[str] | None:
-    """已登记的项目名；projects 表不存在时返回 None。"""
-    if not refresh and _project_cache["names"] is not None \
+def _projects(refresh: bool = False) -> list[dict] | None:
+    """已登记的项目，每项 {"name", "aliases"}；projects 表不存在时返回 None。
+    迁移 006 之前没有 aliases 列，此时 aliases 为空列表。"""
+    if not refresh and _project_cache["rows"] is not None \
             and time.monotonic() - _project_cache["at"] < PROJECT_CACHE_SECONDS:
-        return _project_cache["names"]
+        return _project_cache["rows"]
     try:
-        rows = db.table("projects").select("name").execute().data
+        rows = db.table("projects").select("*").execute().data
     except APIError as e:
         if e.code in _MISSING_TABLE:
             return None
         raise
-    _project_cache.update(names=sorted(r["name"] for r in rows), at=time.monotonic())
-    return _project_cache["names"]
+    rows = sorted(({"name": r["name"], "aliases": list(r.get("aliases") or [])} for r in rows),
+                  key=lambda r: r["name"])
+    _project_cache.update(rows=rows, at=time.monotonic())
+    return rows
+
+
+def _project_names(refresh: bool = False) -> list[str] | None:
+    rows = _projects(refresh)
+    return None if rows is None else [r["name"] for r in rows]
+
+
+def _norm(s: str) -> str:
+    """别名比较用：去首尾空白、大小写不敏感、内部空白压成一个。"""
+    return " ".join(s.split()).casefold()
+
+
+def _match_project(project: str, rows: list[dict]) -> str | None:
+    q = _norm(project)
+    for r in rows:
+        if r["name"] == q:
+            return r["name"]
+    for r in rows:
+        if any(_norm(a) == q for a in r["aliases"]):
+            return r["name"]
+    return None
+
+
+def _describe(rows: list[dict]) -> str:
+    return ", ".join(f"{r['name']} ({'; '.join(r['aliases'])})" if r["aliases"] else r["name"] for r in rows)
+
+
+def _resolve_project(project: str) -> str:
+    """把用户叫法（正式名或别名，如 '心力球'）解析成正式项目名；找不到就报错。"""
+    project = project.strip()
+    rows = _projects()
+    if rows is None:  # 迁移 005 之前：退回环境变量白名单
+        if ALLOWED_PROJECTS and project not in ALLOWED_PROJECTS:
+            raise ValueError(f"未知项目 '{project}'，允许的项目：{', '.join(ALLOWED_PROJECTS)}")
+        return project
+    name = _match_project(project, rows)
+    if name is None:
+        rows = _projects(refresh=True)  # 可能是别的客户端刚登记的
+        name = _match_project(project, rows)
+    if name is None:
+        raise ValueError(
+            f"Unknown project '{project}'. Registered projects (aliases in brackets): {_describe(rows)}. "
+            "If this belongs to one of them, use that name (add a tag for the sub-topic), "
+            "and call add_alias if the user's wording is a new nickname for it. "
+            "Only if the user wants a genuinely new project, register it with add_project."
+        )
+    return name
 
 
 def _check_project(project: str) -> None:
-    names = _project_names()
-    if names is None:  # 迁移 005 之前：退回环境变量白名单
-        if ALLOWED_PROJECTS and project not in ALLOWED_PROJECTS:
-            raise ValueError(f"未知项目 '{project}'，允许的项目：{', '.join(ALLOWED_PROJECTS)}")
-        return
-    if project not in names:
-        names = _project_names(refresh=True)  # 可能是别的客户端刚登记的
-    if project not in names:
-        raise ValueError(
-            f"Unknown project '{project}'. Registered projects: {', '.join(names)}. "
-            "If this belongs to one of them, use that name (add a tag for the sub-topic). "
-            "Only if the user wants a genuinely new project, register it with add_project."
-        )
+    _resolve_project(project)
+
+
+def _clean_aliases(aliases: list[str] | None, name: str) -> list[str]:
+    """去空、去重（大小写不敏感）、去掉和正式名相同的。"""
+    out: list[str] = []
+    for a in aliases or []:
+        a = " ".join(str(a).split())
+        if a and _norm(a) != name and all(_norm(a) != _norm(o) for o in out):
+            out.append(a)
+    return out
+
+
+def _alias_conflicts(aliases: list[str], rows: list[dict], own: str | None = None) -> dict[str, str]:
+    """返回 {别名: 已占用它的项目}，只看别的项目。"""
+    taken = {}
+    for r in rows:
+        if r["name"] == own:
+            continue
+        taken[r["name"]] = r["name"]
+        for a in r["aliases"]:
+            taken[_norm(a)] = r["name"]
+    return {a: taken[_norm(a)] for a in aliases if _norm(a) in taken}
 
 
 def _clean_source(source: str) -> str:
@@ -172,7 +233,8 @@ def save_memory(
     Use after the user makes a decision, changes a plan, or reaches a milestone.
 
     content: ONE self-contained statement, e.g. "portfolio: decided on Astro because content is static".
-    project: a registered project name (see list_projects; new ones only via add_project).
+    project: a registered project name or one of its aliases, e.g. 'ai-pendant' or '心力球'
+      (see list_projects; new projects only via add_project, new nicknames via add_alias).
     source: which assistant or program is writing, e.g. 'claude-web', 'chatgpt', 'claude-code'.
     kind: what sort of memory this is:
       - 'state': where something currently stands ("report generation: framework done, accuracy not yet studied")
@@ -190,7 +252,7 @@ def save_memory(
     returned with status "duplicate": decide whether to supersede it, update it,
     or save again with clearer, more specific content.
     """
-    _check_project(project)
+    project = _resolve_project(project)
     source = _clean_source(source)
 
     old = None
@@ -281,11 +343,12 @@ def search_memory(
     or 'emotion2vec' match even when the meaning is distant). Call this BEFORE answering when
     the user mentions a project, a past decision, or asks about progress or "what did we decide".
 
+    project: registered name or alias (e.g. '心力球' resolves to 'ai-pendant').
     kinds: optional filter, e.g. ["decision"] or ["state", "blocker"].
     include_history: also return superseded / retired memories (they carry superseded_by or
       valid_until). Use when the user asks how something evolved or what was decided before.
     """
-    _check_project(project)
+    project = _resolve_project(project)
     res = db.rpc("search_memories", {
         "query_embedding": embed(query), "query_text": query,
         "filter_project": project, "match_count": k,
@@ -302,8 +365,9 @@ def recent_memories(
     include_history: bool = False,
 ) -> list[dict]:
     """List the n most recently saved or changed memories of a project, newest first
-    (no ranking). Good for "what happened this week". Same filters as search_memory."""
-    _check_project(project)
+    (no ranking). Good for "what happened this week". Same filters as search_memory;
+    project may be a name or an alias."""
+    project = _resolve_project(project)
     q = db.table("memories").select(COLUMNS).eq("project", project)
     if kinds:
         q = q.in_("kind", kinds)
@@ -325,20 +389,27 @@ def delete_memory(memory_id: str) -> dict:
 
 @mcp.tool()
 def list_projects() -> list[dict]:
-    """List the registered projects with their one-line descriptions. Use it when unsure which
-    project name a memory belongs to, or when a project name was rejected as unknown."""
+    """List the registered projects with their one-line descriptions and aliases (other names
+    the user calls them, e.g. '心力球' for 'ai-pendant'). Use it when unsure which project a
+    memory belongs to, or when a project name was rejected as unknown."""
     try:
-        rows = (db.table("projects").select("name, description, created_by, created_at")
-                  .order("name").execute().data)
+        rows = db.table("projects").select("*").order("name").execute().data
     except APIError as e:
         if e.code in _MISSING_TABLE:
-            return [{"name": n, "description": ""} for n in ALLOWED_PROJECTS]
+            return [{"name": n, "description": "", "aliases": []} for n in ALLOWED_PROJECTS]
         raise
-    return rows
+    return [_project_row(r) for r in rows]
+
+
+def _project_row(r: dict) -> dict:
+    return {"name": r["name"], "description": r.get("description", ""),
+            "aliases": list(r.get("aliases") or []),
+            "created_by": r.get("created_by"), "created_at": r.get("created_at")}
 
 
 @mcp.tool()
-def add_project(name: str, description: str, source: str, force: bool = False) -> dict:
+def add_project(name: str, description: str, source: str, aliases: TagList = None,
+                force: bool = False) -> dict:
     """Register a new project so memories can be saved under it.
     Only call this when the user explicitly wants to start tracking a new project. A sub-topic of
     an existing project (e.g. one app inside 'portfolio') is NOT a new project: save it under the
@@ -347,6 +418,8 @@ def add_project(name: str, description: str, source: str, force: bool = False) -
     name: lowercase letters, digits and hyphens, 2-40 characters, e.g. 'ai-pendant'.
     description: one sentence on what the project is, so assistants can tell where things belong.
     source: who is registering it, e.g. 'claude-web', 'chatgpt', 'claude-code'.
+    aliases: other names the user uses for it, in any language, e.g. ["心力球", "AI挂件"].
+      Any of them can be passed as `project` to the other tools later.
     force: register even though a similarly named project exists (only after the user confirmed
       they really are different projects).
     """
@@ -371,12 +444,62 @@ def add_project(name: str, description: str, source: str, force: bool = False) -
         return {"status": "similar_exists", "similar": similar,
                 "hint": "A similarly named project exists. Ask the user whether to use it; "
                         "call again with force=true only if they confirm it is a different project."}
+    aliases = _clean_aliases(aliases, name)
+    conflicts = _alias_conflicts(aliases, _projects() or [])
+    if conflicts:
+        return {"status": "error", "conflicts": conflicts,
+                "hint": "These aliases already point to other projects; drop or change them."}
 
-    row = db.table("projects").insert({
-        "name": name, "description": description, "created_by": source,
-    }).execute().data[0]
-    _project_cache["names"] = None
-    return {"status": "added", "project": row}
+    payload = {"name": name, "description": description, "created_by": source}
+    if aliases:
+        payload["aliases"] = aliases
+    try:
+        row = db.table("projects").insert(payload).execute().data[0]
+    except APIError as e:
+        if aliases and e.code in _MISSING_COLUMN:
+            return {"status": "error",
+                    "hint": "The aliases column does not exist yet: run migrations/006_project_aliases.sql "
+                            "in Supabase, or register without aliases."}
+        raise
+    _project_cache["rows"] = None
+    return {"status": "added", "project": _project_row(row)}
+
+
+@mcp.tool()
+def add_alias(project: str, alias: str) -> dict:
+    """Record another name the user uses for a registered project, so that name works as
+    `project` in the other tools from now on (for every assistant, not just this one).
+    Call it when the user refers to a project by a nickname you had to resolve yourself,
+    e.g. they say '心力球' and you worked out they mean 'ai-pendant'.
+
+    project: the project's registered name or an existing alias.
+    alias: the new name, kept as written (matching is case-insensitive).
+    """
+    name = _resolve_project(project)
+    rows = _projects() or []
+    current = next((r["aliases"] for r in rows if r["name"] == name), [])
+    new = _clean_aliases([alias], name)
+    if not new:
+        return {"status": "error", "hint": "alias is empty or identical to the project name."}
+    alias = new[0]
+    if any(_norm(a) == _norm(alias) for a in current):
+        return {"status": "exists", "project": name, "aliases": current}
+    conflicts = _alias_conflicts([alias], rows, own=name)
+    if conflicts:
+        return {"status": "error", "conflicts": conflicts,
+                "hint": "This name already points to another project."}
+    try:
+        row = (db.table("projects").update({"aliases": current + [alias]})
+                 .eq("name", name).execute().data)
+    except APIError as e:
+        if e.code in _MISSING_COLUMN:
+            return {"status": "error",
+                    "hint": "The aliases column does not exist yet: run migrations/006_project_aliases.sql."}
+        raise
+    _project_cache["rows"] = None
+    if not row:
+        return {"status": "not_found", "project": name}
+    return {"status": "added", "project": _project_row(row[0])}
 
 
 def _similar_names(name: str, names: list[str]) -> list[str]:

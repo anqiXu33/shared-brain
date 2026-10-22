@@ -187,3 +187,15 @@ def test_migration_005_backfills_existing_projects_and_is_rerunnable(db):
     names = {r[0] for r in db.execute("select name from projects").fetchall()}
     assert "test-legacy" in names
     assert names >= {r[0] for r in db.execute("select distinct project from memories").fetchall()}
+
+
+# ---------- project aliases (migration 006) ----------
+def test_migration_006_is_rerunnable_and_defaults_aliases_to_empty(db):
+    from conftest import ROOT
+
+    db.execute((ROOT / "migrations/006_project_aliases.sql").read_text())
+    db.execute("insert into projects (name) values ('test-no-alias') on conflict do nothing")
+    aliases = lambda: db.execute("select aliases from projects where name = 'test-no-alias'").fetchone()[0]  # noqa: E731
+    assert aliases() == []
+    db.execute("update projects set aliases = array['心力球', 'pendant'] where name = 'test-no-alias'")
+    assert aliases() == ["心力球", "pendant"]
