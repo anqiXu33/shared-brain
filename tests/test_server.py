@@ -4,6 +4,7 @@ import json
 import uuid
 
 import pytest
+from postgrest.exceptions import APIError
 
 import server
 
@@ -19,8 +20,8 @@ class FakeResult:
 class FakeQuery:
     """Just enough of the supabase-py query builder for server.py."""
 
-    def __init__(self, db, op, payload=None):
-        self.db, self.op, self.payload, self.filters = db, op, payload, []
+    def __init__(self, db, table, op, payload=None):
+        self.db, self.table, self.op, self.payload, self.filters = db, table, op, payload, []
 
     def select(self, _columns):
         return self
@@ -33,47 +34,72 @@ class FakeQuery:
         self.filters.append(lambda r: r.get(col) is None)
         return self
 
+    def order(self, col, desc=False):
+        self.sort = (col, desc)
+        return self
+
     def execute(self):
-        rows = [r for r in self.db.rows if all(f(r) for f in self.filters)]
+        if self.table == "projects" and self.db.no_projects_table:
+            raise APIError({"code": "PGRST205", "message": "Could not find the table 'public.projects'"})
+        table = self.db.tables[self.table]
+        rows = [r for r in table if all(f(r) for f in self.filters)]
         if self.op == "insert":
-            row = {"id": str(uuid.uuid4()), "superseded_by": None, "valid_until": None,
-                   "created_at": "t", "updated_at": "t", **self.payload}
-            self.db.rows.append(row)
+            if self.table == "projects":
+                row = {"created_at": "t", **self.payload}
+            else:
+                assert self.payload["project"] in {p["name"] for p in self.db.projects}, "foreign key"
+                row = {"id": str(uuid.uuid4()), "superseded_by": None, "valid_until": None,
+                       "created_at": "t", "updated_at": "t", **self.payload}
+            table.append(row)
             return FakeResult([row])
         if self.op == "update":
             for r in rows:
                 r.update(self.payload)
             return FakeResult(rows)
         if self.op == "delete":
-            self.db.rows = [r for r in self.db.rows if r not in rows]
+            table[:] = [r for r in table if r not in rows]
             return FakeResult(rows)
+        if hasattr(self, "sort"):
+            rows.sort(key=lambda r: r[self.sort[0]], reverse=self.sort[1])
         return FakeResult(rows)
 
 
 class FakeTable:
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, db, name):
+        self.db, self.name = db, name
 
     def select(self, columns):
-        return FakeQuery(self.db, "select")
+        return FakeQuery(self.db, self.name, "select")
 
     def insert(self, payload):
-        return FakeQuery(self.db, "insert", payload)
+        return FakeQuery(self.db, self.name, "insert", payload)
 
     def update(self, payload):
-        return FakeQuery(self.db, "update", payload)
+        return FakeQuery(self.db, self.name, "update", payload)
 
     def delete(self):
-        return FakeQuery(self.db, "delete")
+        return FakeQuery(self.db, self.name, "delete")
 
 
 class FakeDB:
     def __init__(self):
-        self.rows = []
+        self.tables = {"memories": [], "projects": [{"name": n, "description": ""} for n in ("p", "other")]}
         self.nearest = []  # what match_memories returns
+        self.no_projects_table = False
+        self.project_reads = 0
 
-    def table(self, _name):
-        return FakeTable(self)
+    @property
+    def rows(self):
+        return self.tables["memories"]
+
+    @property
+    def projects(self):
+        return self.tables["projects"]
+
+    def table(self, name):
+        if name == "projects":
+            self.project_reads += 1
+        return FakeTable(self, name)
 
     def rpc(self, name, _params):
         assert name == "match_memories"
@@ -86,6 +112,7 @@ def fake(monkeypatch):
     monkeypatch.setattr(server, "db", db)
     monkeypatch.setattr(server, "embed", lambda text: [0.0] * 3)
     monkeypatch.setattr(server, "ALLOWED_PROJECTS", [])
+    monkeypatch.setattr(server, "_project_cache", {"names": None, "at": 0.0})
     return db
 
 
@@ -107,11 +134,14 @@ def test_clean_source():
         server._clean_source("   ")
 
 
-def test_project_whitelist(monkeypatch):
+def test_env_whitelist_is_fallback_before_migration_005(fake, monkeypatch):
+    fake.no_projects_table = True
     monkeypatch.setattr(server, "ALLOWED_PROJECTS", ["scai", "portfolio"])
     server._check_project("scai")
     with pytest.raises(ValueError, match="scai, portfolio"):
         server._check_project("Scai")
+    assert [p["name"] for p in server.list_projects()] == ["scai", "portfolio"]
+    assert server.add_project("new-one", "x", "test")["status"] == "error"
 
 
 def test_row_rounds_scores_and_hides_empty_validity():
@@ -153,7 +183,7 @@ def test_mcp_layer_rejects_unknown_kind(fake):
 def test_all_tools_registered():
     names = {t.name for t in asyncio.run(server.mcp.list_tools())}
     assert names == {"save_memory", "update_memory", "retire_memory", "search_memory",
-                     "recent_memories", "delete_memory"}
+                     "recent_memories", "delete_memory", "list_projects", "add_project"}
 
 
 def test_supersede_marks_old_row_and_ignores_it_for_dedup(fake):
@@ -187,3 +217,65 @@ def test_retire_is_idempotent(fake):
 
 def test_update_requires_a_change(fake):
     assert server.update_memory("any")["status"] == "error"
+
+
+# ---------- project registry ----------
+def test_unknown_project_is_rejected_with_the_list(fake):
+    with pytest.raises(ValueError, match="Registered projects: other, p"):
+        server.save_memory("x", "wikilens", "test")
+    assert fake.rows == []
+
+
+def test_project_names_are_cached(fake):
+    server._check_project("p")
+    server._check_project("other")
+    server._check_project("p")
+    assert fake.project_reads == 1
+
+
+def test_project_added_elsewhere_is_seen_without_waiting_for_cache(fake):
+    server._check_project("p")  # cache now holds p, other
+    fake.projects.append({"name": "fresh", "description": ""})  # e.g. ChatGPT registered it
+    server._check_project("fresh")
+
+
+def test_add_project_then_save(fake):
+    res = call_tool("add_project", {"name": " AI-Pendant ", "description": "wearable recorder",
+                                    "source": "claude-web"})
+    assert res["status"] == "added" and res["project"]["name"] == "ai-pendant"
+    assert res["project"]["created_by"] == "claude-web"
+    assert server.save_memory("first note", "ai-pendant", "test")["status"] == "saved"
+    assert [p["name"] for p in server.list_projects()] == ["ai-pendant", "other", "p"]
+
+
+@pytest.mark.parametrize("name", ["a", "has space", "under_score", "-leading", "x" * 41, "naïve"])
+def test_add_project_rejects_bad_names(fake, name):
+    assert server.add_project(name, "d", "test")["status"] == "error"
+    assert len(fake.projects) == 2
+
+
+def test_add_project_requires_description(fake):
+    assert server.add_project("newproj", "  ", "test")["status"] == "error"
+
+
+def test_add_project_existing(fake):
+    assert server.add_project("other", "d", "test")["status"] == "exists"
+    assert len(fake.projects) == 2
+
+
+@pytest.mark.parametrize("existing, new", [
+    ("scai", "scai-lab"), ("shared-brain", "shared-brian"), ("shared-brain", "sharedbrain"),
+    ("portfolio", "portfolio-v2"),
+])
+def test_add_project_warns_on_similar_names(fake, existing, new):
+    fake.projects.append({"name": existing, "description": ""})
+    res = server.add_project(new, "d", "test")
+    assert res["status"] == "similar_exists" and existing in res["similar"]
+    assert server.add_project(new, "d", "test", force=True)["status"] == "added"
+
+
+@pytest.mark.parametrize("new", ["ai-pendant", "wikilens", "freelance"])
+def test_add_project_unrelated_names_pass(fake, new):
+    for n in ("scai", "shared-brain", "portfolio"):
+        fake.projects.append({"name": n, "description": ""})
+    assert server.add_project(new, "d", "test")["status"] == "added"

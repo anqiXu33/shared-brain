@@ -21,6 +21,7 @@ SQL_FILES = [
     "migrations/002_kinds_validity_hybrid.sql",
     "migrations/003_eval.sql",
     "migrations/004_deterministic_ties.sql",
+    "migrations/005_projects.sql",
 ]
 
 

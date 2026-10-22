@@ -23,6 +23,7 @@ def lit(v):
 
 
 def insert(db, content, embedding, project=PROJECT, kind="context", source="test"):
+    db.execute("insert into projects (name) values (%s) on conflict do nothing", (project,))
     return db.execute(
         "insert into memories (content, project, source, kind, embedding, embedding_model) "
         "values (%s, %s, %s, %s, %s::vector, 'test') returning id",
@@ -150,3 +151,39 @@ def test_constraints_reject_bad_values(db, column, value):
     with pytest.raises(psycopg.errors.CheckViolation):
         insert(db, f"bad {column} {uuid.uuid4()}", vec(random.Random(6)),
                project="test-constraints", kind=kind, source=source)
+
+
+# ---------- project registry (migration 005) ----------
+def test_memories_need_a_registered_project(db):
+    import psycopg
+
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        db.execute("insert into memories (content, project, source, embedding_model) "
+                   "values ('x', 'not-registered', 'test', 'test')")
+
+
+@pytest.mark.parametrize("name", ["Upper", "a", "under_score", "-dash", "x" * 41])
+def test_project_name_format(db, name):
+    import psycopg
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        db.execute("insert into projects (name) values (%s)", (name,))
+
+
+def test_project_rename_cascades_to_memories(db):
+    mid = insert(db, "rename me", vec(random.Random(7)), project="test-old-name")
+    db.execute("update projects set name = 'test-new-name' where name = 'test-old-name'")
+    assert db.execute("select project from memories where id = %s", (mid,)).fetchone()[0] == "test-new-name"
+
+
+def test_migration_005_backfills_existing_projects_and_is_rerunnable(db):
+    """Simulates running 005 on a database that already has memories under unregistered names."""
+    from conftest import ROOT
+
+    db.execute("alter table memories drop constraint memories_project_fkey")
+    db.execute("insert into memories (content, project, source, embedding_model) "
+               "values ('legacy', 'test-legacy', 'test', 'test')")
+    db.execute((ROOT / "migrations/005_projects.sql").read_text())
+    names = {r[0] for r in db.execute("select name from projects").fetchall()}
+    assert "test-legacy" in names
+    assert names >= {r[0] for r in db.execute("select distinct project from memories").fetchall()}
