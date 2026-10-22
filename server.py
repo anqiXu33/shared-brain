@@ -3,7 +3,7 @@
 架构：Claude 网页版 / ChatGPT / Claude Code / 其他 MCP 客户端 --MCP--> 本 server --> Supabase (pgvector + pg_trgm)
                                                                            +--> OpenAI embedding
 
-需要数据库已运行 schema.sql、migrations/001、migrations/002。
+需要数据库已运行 schema.sql、migrations/001、002；项目注册表需要 005。
 
 环境变量（写在 .env，或托管平台后台）：
   SUPABASE_URL               Supabase 项目地址
@@ -11,17 +11,21 @@
   OPENAI_API_KEY             OpenAI API 密钥（只用来算 embedding）
   MCP_SECRET_PATH            一串长随机字符，作为 URL 路径，相当于密码
   DEDUP_THRESHOLD            去重阈值，默认 0.9
-  ALLOWED_PROJECTS           可选，逗号分隔的项目名清单；设置后只接受清单内的项目
+  ALLOWED_PROJECTS           已被 projects 表取代（迁移 005）；只在该表还不存在时作为后备白名单
   PORT                       可选，默认 8000
 """
+import difflib
 import json
 import os
+import re
+import time
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from openai import OpenAI
+from postgrest.exceptions import APIError
 from pydantic import BeforeValidator
 from supabase import create_client
 
@@ -33,6 +37,9 @@ oai = OpenAI()
 EMBED_MODEL = "text-embedding-3-small"
 DEDUP_THRESHOLD = float(os.environ.get("DEDUP_THRESHOLD", "0.9"))
 ALLOWED_PROJECTS = [p.strip() for p in os.environ.get("ALLOWED_PROJECTS", "").split(",") if p.strip()]
+PROJECT_CACHE_SECONDS = 60
+# 和 migrations/005 里的 projects_name_format 约束保持一致
+PROJECT_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,39}$")
 
 # 记忆类型，和 migrations/002 里的 check 约束保持一致
 Kind = Literal["state", "decision", "blocker", "context", "log", "session-summary"]
@@ -77,9 +84,40 @@ def embed(text: str) -> list[float]:
     return oai.embeddings.create(model=EMBED_MODEL, input=text).data[0].embedding
 
 
+# 项目名清单：读 projects 表，短暂缓存，避免每次调用都多查一次数据库
+_project_cache: dict = {"names": None, "at": 0.0}
+_MISSING_TABLE = {"PGRST205", "42P01"}  # projects 表不存在（迁移 005 还没运行）
+
+
+def _project_names(refresh: bool = False) -> list[str] | None:
+    """已登记的项目名；projects 表不存在时返回 None。"""
+    if not refresh and _project_cache["names"] is not None \
+            and time.monotonic() - _project_cache["at"] < PROJECT_CACHE_SECONDS:
+        return _project_cache["names"]
+    try:
+        rows = db.table("projects").select("name").execute().data
+    except APIError as e:
+        if e.code in _MISSING_TABLE:
+            return None
+        raise
+    _project_cache.update(names=sorted(r["name"] for r in rows), at=time.monotonic())
+    return _project_cache["names"]
+
+
 def _check_project(project: str) -> None:
-    if ALLOWED_PROJECTS and project not in ALLOWED_PROJECTS:
-        raise ValueError(f"未知项目 '{project}'，允许的项目：{', '.join(ALLOWED_PROJECTS)}")
+    names = _project_names()
+    if names is None:  # 迁移 005 之前：退回环境变量白名单
+        if ALLOWED_PROJECTS and project not in ALLOWED_PROJECTS:
+            raise ValueError(f"未知项目 '{project}'，允许的项目：{', '.join(ALLOWED_PROJECTS)}")
+        return
+    if project not in names:
+        names = _project_names(refresh=True)  # 可能是别的客户端刚登记的
+    if project not in names:
+        raise ValueError(
+            f"Unknown project '{project}'. Registered projects: {', '.join(names)}. "
+            "If this belongs to one of them, use that name (add a tag for the sub-topic). "
+            "Only if the user wants a genuinely new project, register it with add_project."
+        )
 
 
 def _clean_source(source: str) -> str:
@@ -134,7 +172,7 @@ def save_memory(
     Use after the user makes a decision, changes a plan, or reaches a milestone.
 
     content: ONE self-contained statement, e.g. "portfolio: decided on Astro because content is static".
-    project: the project this belongs to (use the user's fixed project list).
+    project: a registered project name (see list_projects; new ones only via add_project).
     source: which assistant or program is writing, e.g. 'claude-web', 'chatgpt', 'claude-code'.
     kind: what sort of memory this is:
       - 'state': where something currently stands ("report generation: framework done, accuracy not yet studied")
@@ -283,6 +321,74 @@ def delete_memory(memory_id: str) -> dict:
     if not row:
         return {"status": "not_found", "id": memory_id}
     return {"status": "deleted", "id": memory_id}
+
+
+@mcp.tool()
+def list_projects() -> list[dict]:
+    """List the registered projects with their one-line descriptions. Use it when unsure which
+    project name a memory belongs to, or when a project name was rejected as unknown."""
+    try:
+        rows = (db.table("projects").select("name, description, created_by, created_at")
+                  .order("name").execute().data)
+    except APIError as e:
+        if e.code in _MISSING_TABLE:
+            return [{"name": n, "description": ""} for n in ALLOWED_PROJECTS]
+        raise
+    return rows
+
+
+@mcp.tool()
+def add_project(name: str, description: str, source: str, force: bool = False) -> dict:
+    """Register a new project so memories can be saved under it.
+    Only call this when the user explicitly wants to start tracking a new project. A sub-topic of
+    an existing project (e.g. one app inside 'portfolio') is NOT a new project: save it under the
+    existing project and add a tag instead.
+
+    name: lowercase letters, digits and hyphens, 2-40 characters, e.g. 'ai-pendant'.
+    description: one sentence on what the project is, so assistants can tell where things belong.
+    source: who is registering it, e.g. 'claude-web', 'chatgpt', 'claude-code'.
+    force: register even though a similarly named project exists (only after the user confirmed
+      they really are different projects).
+    """
+    name = name.strip().lower()
+    if not PROJECT_NAME.match(name):
+        return {"status": "error",
+                "hint": "Name must be lowercase letters, digits and hyphens, 2-40 characters, "
+                        "starting with a letter or digit, e.g. 'ai-pendant'."}
+    description = description.strip()
+    if not description:
+        return {"status": "error", "hint": "Give a one-sentence description of the project."}
+    source = _clean_source(source)
+
+    names = _project_names(refresh=True)
+    if names is None:
+        return {"status": "error",
+                "hint": "The projects table does not exist yet: run migrations/005_projects.sql in Supabase."}
+    if name in names:
+        return {"status": "exists", "name": name}
+    similar = _similar_names(name, names)
+    if similar and not force:
+        return {"status": "similar_exists", "similar": similar,
+                "hint": "A similarly named project exists. Ask the user whether to use it; "
+                        "call again with force=true only if they confirm it is a different project."}
+
+    row = db.table("projects").insert({
+        "name": name, "description": description, "created_by": source,
+    }).execute().data[0]
+    _project_cache["names"] = None
+    return {"status": "added", "project": row}
+
+
+def _similar_names(name: str, names: list[str]) -> list[str]:
+    """Catch spelling variants such as 'scai-lab' vs 'scai' or 'shared-brian' vs 'shared-brain'."""
+    squash = name.replace("-", "")
+    out = []
+    for n in names:
+        m = n.replace("-", "")
+        contains = min(len(squash), len(m)) >= 3 and (squash in m or m in squash)
+        if contains or difflib.SequenceMatcher(None, squash, m).ratio() >= 0.8:
+            out.append(n)
+    return out
 
 
 if __name__ == "__main__":

@@ -11,7 +11,8 @@ import time
 import urllib.error
 import urllib.request
 
-EXPECTED = {"save_memory", "update_memory", "retire_memory", "search_memory", "recent_memories", "delete_memory"}
+EXPECTED = {"save_memory", "update_memory", "retire_memory", "search_memory", "recent_memories", "delete_memory",
+            "list_projects", "add_project"}
 
 
 def rpc(url, method, params=None, id_=1):

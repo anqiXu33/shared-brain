@@ -68,7 +68,7 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 
 1. **Database.** Row Level Security is on with no public policies, so only your server can touch the tables.
 
-2. **Environment.** `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`. It becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password. `ALLOWED_PROJECTS` lists the project names assistants may use.
+2. **Environment.** `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`. It becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password. Projects live in the `projects` table: migration 005 registers every project that already has memories, and new ones are added with the `add_project` tool, no redeploy needed. (`ALLOWED_PROJECTS` is only a fallback for databases that have not run migration 005.)
 
 3. **Deploy.** Push to GitHub and create a Render Web Service from the repo: start command `python server.py`, the same env vars, plus `PYTHON_VERSION=3.12.0`. Free instances sleep after 15 minutes of inactivity and take a few seconds to wake up.
 
@@ -98,6 +98,8 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 | `search_memory` | Hybrid search within one project. |
 | `recent_memories` | Latest changes, newest first. |
 | `delete_memory` | Remove something that was wrong from the start. |
+| `list_projects` | Registered projects with a one-line description each. |
+| `add_project` | Register a new project. Rejects badly formed names and asks first when a similar name exists (`scai-lab` vs `scai`). |
 
 Superseded and retired entries are hidden unless you pass `include_history`.
 
@@ -109,7 +111,7 @@ Superseded and retired entries are hidden unless you pass `include_history`.
 | Typed memories (`kind`) | Decisions, states and blockers age differently. |
 | Supersede, don't overwrite | Search shows what is true now; how you got there stays queryable. |
 | Vector + keyword search | Embeddings do find exact names and short Chinese queries, but often rank them lower; keyword matching pulls them to the top (see Evaluation). |
-| Project whitelist | Stops assistants from splitting one project into three spellings. |
+| Project registry | A table with a foreign key from every memory, so assistants can't split one project into three spellings. New projects are added by a tool call, not by editing env vars. |
 
 ## Evaluation
 
@@ -145,15 +147,15 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 - [x] Retrieval evaluation and deterministic tie-breaking (migrations 003, 004)
 - [ ] `project_brief` tool: recent progress, open decisions, blockers and last session summary in one call
 - [ ] Session summaries written automatically by Claude Code via a `Stop` hook
-- [ ] Project registry in the database instead of an env var
+- [x] Project registry in the database instead of an env var (migration 005)
 - [ ] Later: OAuth instead of a secret path, a small dashboard
 
 ## Tests and CI
 
 Every push runs [GitHub Actions](.github/workflows/ci.yml):
 
-- **Database tests** on a real Postgres with pgvector: `schema.sql` and every migration are applied to a fresh database, then the tests check that hybrid search ranks exactly as the evaluation reproduces it (including keyword ties, the bug migration 004 fixed), hides superseded and retired memories, filters by kind and project, and archives old wording on update.
-- **Server unit tests** with a fake database: duplicate rejection, supersede guards, retire, and argument coercion through the real MCP tool layer.
+- **Database tests** on a real Postgres with pgvector: `schema.sql` and every migration are applied to a fresh database, then the tests check that hybrid search ranks exactly as the evaluation reproduces it (including keyword ties, the bug migration 004 fixed), hides superseded and retired memories, filters by kind and project, archives old wording on update, and enforces the project registry (unregistered names, name format, renames, backfill).
+- **Server unit tests** with a fake database: duplicate rejection, supersede guards, retire, project registration and its similar-name check, and argument coercion through the real MCP tool layer.
 - **Docker**: builds the image, starts it with dummy credentials, and runs the MCP handshake and `tools/list` against it.
 
 Locally:
