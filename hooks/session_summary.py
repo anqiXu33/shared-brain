@@ -12,11 +12,8 @@ Only runs in repos whose CLAUDE.md names a shared-brain project, e.g. a line suc
     The shared-memory project name is my-site.
 or when SHARED_BRAIN_PROJECT is set.
 
-Install (once per machine):
-    mkdir -p ~/.claude/hooks && cp hooks/session_summary.py ~/.claude/hooks/
-and add to ~/.claude/settings.json:
-    {"hooks": {"Stop": [{"hooks": [{"type": "command",
-                                    "command": "python3 ~/.claude/hooks/session_summary.py"}]}]}}
+Install (once per machine; see hooks/install.py):
+    curl -fsSL https://raw.githubusercontent.com/anqiXu33/shared-brain/main/hooks/install.py | python3 -
 
 Settings (environment variables, all optional):
     SHARED_BRAIN_SUMMARY=off              turn the hook off

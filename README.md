@@ -123,15 +123,13 @@ It is off unless you set `VIEWER_TOKEN` (at least 24 characters, e.g. `openssl r
 
 [`hooks/session_summary.py`](hooks/session_summary.py) is a Claude Code `Stop` hook. Every 10 replies, or after 45 minutes with at least 3 replies, it asks Claude to continue for one more step and save or update this session's `session-summary` through the MCP tools it already has. The model that did the work writes the summary, so the hook needs no API key, and each session keeps one summary that is superseded as it grows. It only runs in repos whose `CLAUDE.md` names a project ("The shared-memory project name is my-site." or "project 名是 my-site"), and it never blocks twice in a row.
 
+Install it on every machine that runs Claude Code, with one command:
+
 ```bash
-mkdir -p ~/.claude/hooks && cp hooks/session_summary.py ~/.claude/hooks/
+curl -fsSL https://raw.githubusercontent.com/anqiXu33/shared-brain/main/hooks/install.py | python3 -
 ```
 
-Then in `~/.claude/settings.json`:
-
-```json
-{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python3 ~/.claude/hooks/session_summary.py"}]}]}}
-```
+(or `python3 hooks/install.py` from a clone). It copies the hook to `~/.claude/hooks/` and adds it to `~/.claude/settings.json` without touching anything else in that file, after saving a backup. Run it again to update; `--uninstall` removes it.
 
 Intervals and an off switch are environment variables, listed at the top of the script.
 
@@ -191,7 +189,7 @@ Every push runs [GitHub Actions](.github/workflows/ci.yml):
 - **Database tests** on a real Postgres with pgvector: `schema.sql` and every migration are applied to a fresh database, then the tests check that hybrid search ranks exactly as the evaluation reproduces it (including keyword ties, the bug migration 004 fixed), hides superseded and retired memories, filters by kind and project, archives old wording on update, and enforces the project registry (unregistered names, name format, renames, backfill).
 - **Server unit tests** with a fake database: duplicate rejection, supersede guards, retire, project registration and its similar-name check, and argument coercion through the real MCP tool layer.
 - **Viewer tests**: login, cookie flags, CSP, pagination past 1000 rows, and that every route only reads.
-- **Hook tests**: run the `Stop` hook as a subprocess the way Claude Code does: when it asks, that it never asks twice in a row, project detection, the off switch, bad input.
+- **Hook tests**: run the `Stop` hook as a subprocess the way Claude Code does: when it asks, that it never asks twice in a row, project detection, the off switch, bad input. The installer is tested against existing settings files: other hooks and settings kept, idempotent, invalid JSON left alone, clean uninstall.
 - **Docker**: builds the image, starts it with dummy credentials, and runs the MCP handshake and `tools/list` against it.
 
 Locally:
@@ -216,6 +214,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pytest
 | `server.py` | The MCP server |
 | `viewer.py` | Read-only web viewer at `/viewer` |
 | `hooks/session_summary.py` | Claude Code `Stop` hook for automatic session summaries |
+| `hooks/install.py` | One-command installer for that hook |
 | `docs/schema.md` | Tables, migration history and how search ranks |
 | `schema.sql` | Initial database setup |
 | `migrations/001_history.sql` | `memory_history` table and trigger |
