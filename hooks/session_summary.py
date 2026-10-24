@@ -39,7 +39,7 @@ import time
 from pathlib import Path
 
 PATTERNS = [
-    re.compile(r"project\s*名(?:字|称)?\s*(?:是|为|[:：])\s*[`'\"“]?([a-z0-9][a-z0-9-]{1,39})"),
+    re.compile(r"project\s*名(?:字|称)?\s*(?:是|为|[:：])\s*[`'\"“]?([a-z0-9][a-z0-9-]{1,39})", re.IGNORECASE),
     re.compile(r"(?:shared[- ]?memory|shared-brain)\s+project\s+name\s+is\s+[`'\"]?([a-z0-9][a-z0-9-]{1,39})",
                re.IGNORECASE),
 ]
@@ -138,9 +138,10 @@ def main(stdin: str) -> str:
     if data.get("stop_hook_active"):
         # Claude is already continuing because of a Stop hook (ours or another one): never ask twice.
         # If it was ours, the summary step just ended, so restart the count from here.
+        state["turns"] = state.get("turns", 0) + 1
         if state.pop("pending", False):
-            state["last_turn"], state["last_time"] = state.get("turns", 0), now
-            path.write_text(json.dumps(state))
+            state["last_turn"], state["last_time"] = state["turns"], now
+        path.write_text(json.dumps(state))
         return ""
     ask = decide(state, now,
                  _int_env("SHARED_BRAIN_SUMMARY_EVERY_TURNS", 10),

@@ -21,6 +21,7 @@ from collections import Counter
 from collections.abc import Callable
 from urllib.parse import parse_qs
 
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
@@ -29,9 +30,11 @@ log = logging.getLogger("viewer")
 
 COOKIE = "sb_viewer"
 MIN_TOKEN_LENGTH = 24
-PAGE = 1000  # Supabase/PostgREST returns at most 1000 rows per request by default
+PAGE = 1000  # rows asked for per request; Supabase may return fewer ("Max rows" setting)
+ID_CHUNK = 100  # memory ids per memory_history request, keeps the URL short
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 COLUMNS = "id, content, project, tags, source, kind, superseded_by, valid_until, created_at, updated_at"
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 def session_value(token: str) -> str:
@@ -40,17 +43,20 @@ def session_value(token: str) -> str:
 
 
 def _secure(request: Request) -> bool:
-    # Render terminates TLS in front of the app, so the scheme arrives in X-Forwarded-Proto
-    return request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+    """Secure cookies everywhere except plain-http local development. Deliberately not based on
+    X-Forwarded-Proto, which a proxy may omit or send as a list."""
+    return (request.url.hostname or "") not in LOCAL_HOSTS
 
 
-def _headers(nonce: str | None = None) -> dict:
+def _headers(nonce: str | None = None, secure: bool = False) -> dict:
     h = {
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "no-referrer",
         "X-Robots-Tag": "noindex, nofollow",
     }
+    if secure:
+        h["Strict-Transport-Security"] = "max-age=31536000"
     if nonce:
         h["Content-Security-Policy"] = (
             f"default-src 'none'; script-src 'nonce-{nonce}'; style-src 'nonce-{nonce}'; "
@@ -60,25 +66,29 @@ def _headers(nonce: str | None = None) -> dict:
     return h
 
 
-def _page(html: str, status: int = 200) -> HTMLResponse:
+def _page(request: Request, html: str, status: int = 200) -> HTMLResponse:
     nonce = secrets.token_urlsafe(16)
-    return HTMLResponse(html.replace("__NONCE__", nonce), status_code=status, headers=_headers(nonce))
+    return HTMLResponse(html.replace("__NONCE__", nonce), status_code=status,
+                        headers=_headers(nonce, _secure(request)))
 
 
 def _json(data, status: int = 200) -> JSONResponse:
     return JSONResponse(data, status_code=status, headers=_headers())
 
 
+def _not_found() -> Response:
+    return Response("Not Found", status_code=404)
+
+
 def _fetch_all(make_query: Callable) -> list[dict]:
-    """Page through a query in steps of PAGE rows. make_query() must return a fresh, ordered query."""
+    """Page through a query until an empty page. make_query() must return a fresh query ordered
+    by a unique column, so pages neither overlap nor skip rows."""
     rows: list[dict] = []
-    start = 0
     while True:
-        batch = make_query().range(start, start + PAGE - 1).execute().data
-        rows.extend(batch)
-        if len(batch) < PAGE:
+        batch = make_query().range(len(rows), len(rows) + PAGE - 1).execute().data
+        if not batch:
             return rows
-        start += PAGE
+        rows.extend(batch)
 
 
 def make_routes(db, token: str | None, embed: Callable[[str], list[float]] | None = None) -> list[Route]:
@@ -86,19 +96,22 @@ def make_routes(db, token: str | None, embed: Callable[[str], list[float]] | Non
     enabled = bool(token) and len(token) >= MIN_TOKEN_LENGTH
     if token and not enabled:
         log.warning("VIEWER_TOKEN is shorter than %d characters; the viewer stays disabled", MIN_TOKEN_LENGTH)
-    expected = session_value(token) if enabled else ""
+    expected = session_value(token).encode() if enabled else b""
 
     def authed(request: Request) -> bool:
-        return enabled and hmac.compare_digest(request.cookies.get(COOKIE, ""), expected)
+        given = request.cookies.get(COOKIE, "").encode("utf-8", errors="replace")
+        return enabled and hmac.compare_digest(given, expected)
 
-    def guard(handler):
+    def guard(work):
+        """work(request) is plain blocking code (supabase-py and OpenAI are synchronous); it runs in
+        a worker thread so a slow viewer request never stalls MCP clients on the same event loop."""
         async def wrapped(request: Request):
             if not enabled:
-                return Response("Not Found", status_code=404)
+                return _not_found()
             if not authed(request):
                 return _json({"error": "Not signed in."}, 401)
             try:
-                return await handler(request)
+                return await run_in_threadpool(work, request)
             except Exception:  # keep database errors and their details out of the browser
                 log.exception("viewer request failed: %s", request.url.path)
                 return _json({"error": "The database request failed. Check the server logs."}, 502)
@@ -106,44 +119,51 @@ def make_routes(db, token: str | None, embed: Callable[[str], list[float]] | Non
 
     async def index(request: Request):
         if not enabled:
-            return Response("Not Found", status_code=404)
-        return _page(APP_HTML if authed(request) else LOGIN_HTML.replace("__ERROR__", ""))
+            return _not_found()
+        return _page(request, APP_HTML if authed(request) else LOGIN_HTML.replace("__ERROR__", ""))
 
     async def login(request: Request):
         if not enabled:
-            return Response("Not Found", status_code=404)
+            return _not_found()
         form = parse_qs((await request.body()).decode(errors="replace"))
         given = (form.get("token") or [""])[0].strip()
         if not hmac.compare_digest(given.encode(), token.encode()):
             await asyncio.sleep(1)  # slows down guessing; the token is long and random anyway
-            return _page(LOGIN_HTML.replace("__ERROR__", '<p class="error">That token is not right.</p>'), 401)
-        resp = RedirectResponse("/viewer", status_code=303, headers=_headers())
-        resp.set_cookie(COOKIE, expected, max_age=365 * 24 * 3600, path="/viewer",
+            return _page(request, LOGIN_HTML.replace(
+                "__ERROR__", '<p class="error">That token is not right.</p>'), 401)
+        resp = RedirectResponse("/viewer", status_code=303, headers=_headers(secure=_secure(request)))
+        resp.set_cookie(COOKIE, expected.decode(), max_age=365 * 24 * 3600, path="/viewer",
                         httponly=True, samesite="strict", secure=_secure(request))
         return resp
 
     async def logout(request: Request):
+        if not enabled:
+            return _not_found()
         resp = RedirectResponse("/viewer", status_code=303, headers=_headers())
-        resp.delete_cookie(COOKIE, path="/viewer")
+        resp.delete_cookie(COOKIE, path="/viewer", httponly=True, samesite="strict", secure=_secure(request))
         return resp
 
-    async def projects(_request: Request):
+    def projects(_request: Request):
         rows = db.table("projects").select("*").order("name").execute().data
         return _json([{"name": r["name"], "description": r.get("description", ""),
                        "aliases": list(r.get("aliases") or [])} for r in rows])
 
-    async def project(request: Request):
+    def project(request: Request):
         name = request.path_params["name"]
-        memories = _fetch_all(lambda: db.table("memories").select(COLUMNS).eq("project", name)
-                              .order("updated_at", desc=True).order("id"))
-        ids = {m["id"] for m in memories}
-        archived = _fetch_all(lambda: db.table("memory_history").select("memory_id").order("id"))
-        versions = Counter(h["memory_id"] for h in archived if h["memory_id"] in ids)
+        # ordered by id only: unique, so paging is stable; the page sorts by time itself
+        memories = _fetch_all(lambda: db.table("memories").select(COLUMNS).eq("project", name).order("id"))
+        ids = [m["id"] for m in memories]
+        versions: Counter = Counter()
+        for i in range(0, len(ids), ID_CHUNK):
+            chunk = ids[i:i + ID_CHUNK]
+            for h in _fetch_all(lambda c=chunk: db.table("memory_history").select("memory_id")
+                                .in_("memory_id", c).order("id")):
+                versions[h["memory_id"]] += 1
         for m in memories:
             m["versions"] = versions.get(m["id"], 0)
         return _json({"project": name, "now": _now_iso(), "memories": memories})
 
-    async def history(request: Request):
+    def history(request: Request):
         memory_id = request.path_params["id"]
         if not UUID.match(memory_id):
             return _json({"error": "Not a memory id."}, 400)
@@ -151,7 +171,7 @@ def make_routes(db, token: str | None, embed: Callable[[str], list[float]] | Non
                 .eq("memory_id", memory_id).order("replaced_at", desc=True).execute().data)
         return _json(rows)
 
-    async def search(request: Request):
+    def search(request: Request):
         if embed is None:
             return _json({"error": "Search is not available."}, 501)
         q = request.query_params.get("q", "").strip()
@@ -182,8 +202,10 @@ def _now_iso() -> str:
 
 
 def register(mcp, db, embed=None) -> None:
-    """Attach the viewer routes to a FastMCP server (served next to the MCP endpoint)."""
-    mcp._custom_starlette_routes.extend(make_routes(db, os.environ.get("VIEWER_TOKEN"), embed))
+    """Attach the viewer routes to a FastMCP server (served next to the MCP endpoint),
+    through FastMCP's public custom_route decorator."""
+    for r in make_routes(db, os.environ.get("VIEWER_TOKEN"), embed):
+        mcp.custom_route(r.path, methods=sorted(r.methods - {"HEAD"}))(r.endpoint)
 
 
 # ---------------------------------------------------------------------------------------------

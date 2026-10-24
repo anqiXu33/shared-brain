@@ -16,19 +16,15 @@ got there, and how search ranks results.
 ## Tables
 
 ```text
-projects                      memories                            memory_history
-─────────                     ────────                            ──────────────
-name (pk) ◄────────────────── project (fk, on update cascade)
-description                   id (pk) ◄────────────────────────── memory_id (fk, on delete cascade)
-aliases text[]                content                             old_content
-created_by                    kind                                old_source
-created_at                    tags text[]                         replaced_at
-                              source
-                              superseded_by ──┐ (fk to memories.id, on delete set null)
-                              valid_until     │
-                              embedding  ◄────┘
-                              embedding_model
-                              created_at, updated_at
+projects                     memories                                memory_history
+────────                     ────────                                ──────────────
+name (pk) ◄───────────────── project      (fk, on update cascade)
+description              ┌─► id (pk) ◄────────────────────────────── memory_id (fk, on delete cascade)
+aliases text[]           └── superseded_by (fk, on delete set null)   old_content
+created_by                   valid_until                             old_source
+created_at                   content, kind, tags, source             replaced_at
+                             embedding, embedding_model
+                             created_at, updated_at
 ```
 
 ### `memories`
@@ -91,7 +87,7 @@ Renaming a project (`update projects set name = ...`) carries its memories along
 ## How the schema evolved
 
 Every migration is additive and safe to run while the previous server version is live; each
-file's header explains how to roll it back. They are applied by hand in the Supabase SQL editor,
+file's header explains how to roll it back (`schema.sql` is the starting point and has none). They are applied by hand in the Supabase SQL editor,
 in order. CI applies `schema.sql` and all migrations to a fresh database on every push.
 
 | Step | What changed | Why |
@@ -100,7 +96,7 @@ in order. CI applies `schema.sql` and all migrations to a fresh database on ever
 | `001_history` | `memory_history` table and the archiving trigger. | Edits overwrote text with no way back. |
 | `002_kinds_validity_hybrid` | Full backup tables first. `source` opened to any non-empty value. `kind` column, backfilled from existing tags. `superseded_by` and `valid_until`. `pg_trgm` and a trigram index. `match_memories()` ignores inactive memories. New `search_memories()` with hybrid ranking. | Statuses went stale and were overwritten instead of replaced; exact names such as library names ranked poorly with vectors alone; new clients needed a schema change just to write. |
 | `003_eval` | `eval_rank_memories()`: both raw scores for every active memory of a project. Read-only. | The retrieval evaluation reproduces vector-only, keyword-only and hybrid ranking offline from these scores. |
-| `004_deterministic_ties` | `search_memories()` breaks ties by vector distance, then by id, in every ranking step. | The evaluation showed short queries give many memories the same keyword score, and Postgres ordered those ties arbitrarily, so results changed between identical calls. |
+| `004_deterministic_ties` | `search_memories()` ranks deterministically: ties in the vector and keyword lists are broken by vector distance, then id; the final order by fused score, then most recently updated, then id. | The evaluation showed short queries give many memories the same keyword score, and Postgres ordered those ties arbitrarily, so results changed between identical calls. |
 | `005_projects` | `projects` table, backfilled from the project names already in use; foreign key from `memories.project`. | The allowed-project list lived in an environment variable and needed a redeploy to change. |
 | `006_project_aliases` | `projects.aliases text[]`. | Users call projects by nicknames in several languages; resolving them in one place means every assistant understands the same nickname. |
 
@@ -144,7 +140,9 @@ merge anything by itself.
 
 - **Row Level Security** is on for every table, with no policies. The public `anon` key sees
   nothing; only the server's `service_role` key can read or write.
-- The functions run with the caller's rights (not `security definer`) and a fixed `search_path`.
+- The functions run with the caller's rights (not `security definer`). The search functions
+  (`match_memories`, `search_memories`, `eval_rank_memories`) pin `search_path`; the history
+  trigger function from migration 001 does not, which is harmless while it is not `security definer`.
 - The MCP endpoint lives at a secret URL path (`MCP_SECRET_PATH`).
 - The web viewer (`/viewer`, see `viewer.py`) is off unless `VIEWER_TOKEN` is set. It only reads:
   no route in it inserts, updates or deletes, which the tests check. It does use the same

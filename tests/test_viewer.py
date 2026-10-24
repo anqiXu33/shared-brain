@@ -24,6 +24,10 @@ class Q:
         self.filters.append(lambda r: r.get(col) == val)
         return self
 
+    def in_(self, col, vals):
+        self.filters.append(lambda r: r.get(col) in vals)
+        return self
+
     def order(self, *_a, **_k):
         return self
 
@@ -34,7 +38,7 @@ class Q:
     def execute(self):
         rows = [dict(r) for r in self.db.tables[self.table] if all(f(r) for f in self.filters)]
         if self.window:
-            rows = rows[self.window[0]:self.window[1] + 1]
+            rows = rows[self.window[0]:self.window[1] + 1][:self.db.max_rows]
         return type("R", (), {"data": rows})()
 
     def __getattr__(self, name):  # insert / update / delete / upsert ...
@@ -44,6 +48,7 @@ class Q:
 class FakeDB:
     def __init__(self):
         self.calls = []
+        self.max_rows = 1000  # Supabase's "Max rows" setting
         self.tables = {
             "projects": [{"name": "demo", "description": "A demo", "aliases": ["演示"]}],
             "memories": [
@@ -160,6 +165,36 @@ def test_pagination_reads_past_1000_rows(monkeypatch):
     assert len(c.get("/viewer/api/projects/demo").json()["memories"]) == 7
 
 
+def test_pagination_survives_a_lower_max_rows_setting():
+    db = FakeDB()
+    db.max_rows = 1  # server returns fewer rows than asked for
+    for i in range(3):
+        db.tables["memory_history"].append({**db.tables["memory_history"][0], "id": f"h{i + 2}"})
+    c, _ = client(db)
+    login(c)
+    data = c.get("/viewer/api/projects/demo").json()["memories"]
+    assert len(data) == 2
+    assert {m["id"]: m["versions"] for m in data}[NEW] == 4
+
+
+def test_odd_cookie_is_rejected_not_crashing():
+    c, _ = client()
+    r = c.get("/viewer/api/projects", headers={"cookie": 'sb_viewer="\\303\\251"'})
+    assert r.status_code == 401
+    r = c.get("/viewer", headers={"cookie": "sb_viewer=é".encode("latin-1")})
+    assert r.status_code == 200 and 'name="token"' in r.text
+
+
+def test_logout_hidden_when_disabled():
+    c, _ = client(token=None)
+    assert c.post("/viewer/logout", follow_redirects=False).status_code == 404
+
+
+def test_hsts_on_pages():
+    c, _ = client()
+    assert "max-age" in c.get("/viewer").headers["strict-transport-security"]
+
+
 def test_history_endpoint_validates_id():
     c, _ = client()
     login(c)
@@ -207,5 +242,6 @@ def test_only_reads(path):
 
 def test_server_mounts_viewer_routes():
     import server
-    paths = {getattr(r, "path", None) for r in server.mcp.streamable_http_app().routes}
-    assert {"/viewer", "/viewer/api/projects"} <= paths
+    routes = {getattr(r, "path", None): r for r in server.mcp.streamable_http_app().routes}
+    assert {"/viewer", "/viewer/login", "/viewer/api/projects"} <= set(routes)
+    assert "POST" in routes["/viewer/login"].methods

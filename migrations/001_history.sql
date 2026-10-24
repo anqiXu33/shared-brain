@@ -2,6 +2,11 @@
 -- 迁移 001：记忆修改历史
 -- 效果：每次 update_memory 覆盖内容之前，数据库自动把旧版本存进 memory_history。
 -- 用法：Supabase > SQL Editor 粘贴运行一次。server.py 无需改动。
+--
+-- 回滚：
+--   drop trigger if exists memories_archive_before_update on memories;
+--   drop function if exists archive_memory_version;
+--   drop table if exists memory_history;
 -- =====================================================================
 
 -- 1. 历史表：一行 = 某条记忆被覆盖前的一个旧版本
