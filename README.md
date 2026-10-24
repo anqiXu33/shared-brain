@@ -23,6 +23,8 @@
 - **Hybrid search**: pgvector semantic search plus pg_trgm keyword matching, merged with RRF.
 - **Typed memories with history**: new states supersede old ones instead of overwriting them.
 - **Duplicate-aware**: near-duplicates go back to the assistant to decide.
+- **Session summaries without asking**: a Claude Code `Stop` hook keeps each session's summary up to date.
+- **A page for people**: a read-only web viewer at `/viewer`, phone-friendly.
 
 ## Example
 
@@ -68,7 +70,7 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 
 1. **Database.** Row Level Security is on with no public policies, so only your server can touch the tables.
 
-2. **Environment.** `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`. It becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password. Projects live in the `projects` table: migration 005 registers every project that already has memories, and new ones are added with the `add_project` tool, no redeploy needed. (`ALLOWED_PROJECTS` is only a fallback for databases that have not run migration 005.) Migration 006 adds project aliases: every tool that takes a `project` accepts an alias too, so "心力球" resolves to `ai-pendant` for every assistant, not just the one that happened to know the nickname.
+2. **Environment.** `MCP_SECRET_PATH` is the output of `openssl rand -hex 24`. It becomes the URL path and is the only thing standing between the internet and your memories, so treat it like a password. Projects live in the `projects` table: migration 005 registers every project that already has memories, and new ones are added with the `add_project` tool, no redeploy needed. (`ALLOWED_PROJECTS` is only a fallback for databases that have not run migration 005.) Migration 006 adds project aliases: every tool that takes a `project` accepts an alias too, so "心力球" resolves to `ai-pendant` for every assistant, not just the one that happened to know the nickname. Optionally set `VIEWER_TOKEN` to turn on the [web viewer](#web-viewer).
 
 3. **Deploy.** Push to GitHub and create a Render Web Service from the repo: start command `python server.py`, the same env vars, plus `PYTHON_VERSION=3.12.0`. Free instances sleep after 15 minutes of inactivity and take a few seconds to wake up.
 
@@ -104,6 +106,34 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 | `add_alias` | Record another name the user uses for a project. From then on it works as `project` everywhere; an alias cannot point to two projects. |
 
 Superseded and retired entries are hidden unless you pass `include_history`.
+
+The tables, how each migration changed them, and how hybrid search ranks results are described in [`docs/schema.md`](docs/schema.md).
+
+## Web viewer
+
+The same server also serves a read-only page at `/viewer` for reading the memories yourself, on a phone or a laptop:
+
+- per project: where it stands, open blockers, latest decisions and the last session summary on top, then every memory as a timeline
+- filter by kind or by text, or run the same hybrid search the assistants use (with its vector and keyword scores)
+- with history on: superseded and retired memories, links between a state and the one that replaced it, and earlier wordings of edited memories
+
+It is off unless you set `VIEWER_TOKEN` (at least 24 characters, e.g. `openssl rand -hex 24`) in the server's environment. Open `https://<your-service>.onrender.com/viewer`, enter the token once, and the browser keeps a signed, HttpOnly cookie for a year; the token itself is never stored in the browser. Changing the token signs every browser out. No route in `viewer.py` writes to the database, and the tests check that.
+
+## Automatic session summaries (Claude Code)
+
+[`hooks/session_summary.py`](hooks/session_summary.py) is a Claude Code `Stop` hook. Every 10 replies, or after 45 minutes with at least 3 replies, it asks Claude to continue for one more step and save or update this session's `session-summary` through the MCP tools it already has. The model that did the work writes the summary, so the hook needs no API key, and each session keeps one summary that is superseded as it grows. It only runs in repos whose `CLAUDE.md` names a project ("The shared-memory project name is my-site." or "project 名是 my-site"), and it never blocks twice in a row.
+
+```bash
+mkdir -p ~/.claude/hooks && cp hooks/session_summary.py ~/.claude/hooks/
+```
+
+Then in `~/.claude/settings.json`:
+
+```json
+{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python3 ~/.claude/hooks/session_summary.py"}]}]}}
+```
+
+Intervals and an off switch are environment variables, listed at the top of the script.
 
 ## Design choices
 
@@ -148,10 +178,11 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 - [x] Memory kinds, supersede/retire, hybrid search (migration 002)
 - [x] Retrieval evaluation and deterministic tie-breaking (migrations 003, 004)
 - [x] `project_brief` tool: recent progress, open decisions, blockers and last session summary in one call
-- [ ] Session summaries written automatically by Claude Code via a `Stop` hook
+- [x] Session summaries written automatically by Claude Code via a `Stop` hook
 - [x] Project registry in the database instead of an env var (migration 005)
 - [x] Project aliases, so any assistant resolves a nickname to the right project (migration 006)
-- [ ] Later: OAuth instead of a secret path, a small dashboard
+- [x] Read-only web viewer
+- [ ] Later: OAuth instead of a secret path
 
 ## Tests and CI
 
@@ -159,6 +190,8 @@ Every push runs [GitHub Actions](.github/workflows/ci.yml):
 
 - **Database tests** on a real Postgres with pgvector: `schema.sql` and every migration are applied to a fresh database, then the tests check that hybrid search ranks exactly as the evaluation reproduces it (including keyword ties, the bug migration 004 fixed), hides superseded and retired memories, filters by kind and project, archives old wording on update, and enforces the project registry (unregistered names, name format, renames, backfill).
 - **Server unit tests** with a fake database: duplicate rejection, supersede guards, retire, project registration and its similar-name check, and argument coercion through the real MCP tool layer.
+- **Viewer tests**: login, cookie flags, CSP, pagination past 1000 rows, and that every route only reads.
+- **Hook tests**: run the `Stop` hook as a subprocess the way Claude Code does: when it asks, that it never asks twice in a row, project detection, the off switch, bad input.
 - **Docker**: builds the image, starts it with dummy credentials, and runs the MCP handshake and `tools/list` against it.
 
 Locally:
@@ -181,6 +214,9 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pytest
 | File | Purpose |
 |---|---|
 | `server.py` | The MCP server |
+| `viewer.py` | Read-only web viewer at `/viewer` |
+| `hooks/session_summary.py` | Claude Code `Stop` hook for automatic session summaries |
+| `docs/schema.md` | Tables, migration history and how search ranks |
 | `schema.sql` | Initial database setup |
 | `migrations/001_history.sql` | `memory_history` table and trigger |
 | `migrations/002_kinds_validity_hybrid.sql` | Memory kinds, supersede/retire, hybrid search |
@@ -189,7 +225,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pytest
 | `migrations/005_projects.sql` | `projects` table and foreign key from memories |
 | `migrations/006_project_aliases.sql` | `aliases` column on `projects` |
 | `eval/` | Retrieval evaluation: vector vs keyword vs hybrid ([how to run](eval/README.md)) |
-| `tests/` | Database tests, server unit tests, HTTP smoke test |
+| `tests/` | Database tests, server, viewer and hook unit tests, HTTP smoke test |
 | `Dockerfile` | Container image for the server |
 | `.github/workflows/ci.yml` | Lint, tests and Docker build on every push |
 | `requirements.txt` | Python dependencies (`requirements-dev.txt` adds test tools) |

@@ -10,7 +10,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY server.py .
+COPY server.py viewer.py ./
 
 RUN useradd --create-home --uid 10001 app
 USER app

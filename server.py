@@ -12,6 +12,7 @@
   MCP_SECRET_PATH            一串长随机字符，作为 URL 路径，相当于密码
   DEDUP_THRESHOLD            去重阈值，默认 0.9
   ALLOWED_PROJECTS           已被 projects 表取代（迁移 005）；只在该表还不存在时作为后备白名单
+  VIEWER_TOKEN               可选；设了才开启只读网页 /viewer（至少 24 个字符）
   PORT                       可选，默认 8000
 """
 import difflib
@@ -28,6 +29,8 @@ from openai import OpenAI
 from postgrest.exceptions import APIError
 from pydantic import BeforeValidator
 from supabase import create_client
+
+import viewer
 
 load_dotenv()  # 读取同目录下的 .env 文件（如果存在）
 
@@ -547,6 +550,10 @@ def _similar_names(name: str, names: list[str]) -> list[str]:
         if contains or difflib.SequenceMatcher(None, squash, m).ratio() >= 0.8:
             out.append(n)
     return out
+
+
+# 只读网页查看界面 /viewer（见 viewer.py；不设 VIEWER_TOKEN 就不开启）
+viewer.register(mcp, db, embed)
 
 
 if __name__ == "__main__":
