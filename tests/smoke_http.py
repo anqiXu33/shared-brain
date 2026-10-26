@@ -39,7 +39,14 @@ def main(url, wait=60):
             if time.time() > deadline:
                 raise
             time.sleep(1)
-    print("server:", init["result"]["serverInfo"])
+    info = init["result"]["serverInfo"]
+    print("server:", {k: v for k, v in info.items() if k != "icons"}, "icons:", len(info.get("icons") or []))
+    if not info.get("icons"):
+        sys.exit("serverInfo has no icons")
+    base = url.rsplit("/", 1)[0]
+    with urllib.request.urlopen(base + "/favicon.ico", timeout=10) as resp:
+        if resp.status != 200 or not resp.read().startswith(b"\x00\x00\x01\x00"):
+            sys.exit("/favicon.ico is not served")
     tools = {t["name"] for t in rpc(url, "tools/list", id_=2)["result"]["tools"]}
     print("tools:", sorted(tools))
     if tools != EXPECTED:
