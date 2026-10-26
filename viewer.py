@@ -244,6 +244,9 @@ LOGIN_HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>shared-brain</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style nonce="__NONCE__">""" + _STYLE + """
 .login{max-width:380px;margin:18vh auto 0;padding:0 16px}
 h1{font-size:22px;margin:0 0 4px}
@@ -269,6 +272,9 @@ APP_HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>shared-brain</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style nonce="__NONCE__">""" + _STYLE + """
 header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line)}
 .bar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-top:14px}

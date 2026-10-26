@@ -30,6 +30,7 @@ from postgrest.exceptions import APIError
 from pydantic import BeforeValidator
 from supabase import create_client
 
+import icons
 import viewer
 
 load_dotenv()  # 读取同目录下的 .env 文件（如果存在）
@@ -51,6 +52,8 @@ COLUMNS = "id, content, project, tags, source, kind, superseded_by, valid_until,
 
 mcp = FastMCP(
     "shared-memory",
+    website_url="https://github.com/anqiXu33/shared-brain",
+    icons=icons.mcp_icons(),
     host="0.0.0.0",
     port=int(os.environ.get("PORT", 8000)),
     streamable_http_path="/" + os.environ.get("MCP_SECRET_PATH", "mcp"),
@@ -554,6 +557,8 @@ def _similar_names(name: str, names: list[str]) -> list[str]:
 
 # 只读网页查看界面 /viewer（见 viewer.py；不设 VIEWER_TOKEN 就不开启）
 viewer.register(mcp, db, embed)
+# 图标：连接器列表和 viewer 标签页用（见 icons.py）
+icons.register(mcp)
 
 
 if __name__ == "__main__":
