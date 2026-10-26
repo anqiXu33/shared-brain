@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="static/icon.svg" width="112" alt="shared-brain logo: three little blobs under one cloud">
+</p>
+
 <h1 align="center">shared-brain</h1>
 
 <p align="center"><em>Stop re-explaining your project to every AI you use.</em></p>
