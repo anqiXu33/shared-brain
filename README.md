@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/icon.svg" width="112" alt="shared-brain logo: three little blobs (Claude, ChatGPT, Claude Code) under one cloud">
+  <img src="static/icon.svg" width="112" alt="shared-brain logo: three little blobs under one cloud">
 </p>
 
 <h1 align="center">shared-brain</h1>
