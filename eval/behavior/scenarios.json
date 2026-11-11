@@ -44,8 +44,8 @@
      "checks": [
        {"type": "looked_up", "project": "garden-app"},
        {"type": "answer", "question": "回答给出的原因是否是：用户主要是父母一辈，不想再下载新 App？"}]},
-    {"id": "recall-implicit", "category": "recall",
-     "sessions": [["接着说实验的事，评测集我还没想好，你帮我想想。"]],
+    {"id": "recall-for-advice", "category": "recall",
+     "sessions": [["方言识别的评测集我还没想好，你帮我想想。"]],
      "checks": [
        {"type": "looked_up", "project": "dialect-asr"},
        {"type": "answer", "question": "回答是否体现出知道基线用的是 Whisper-small、只做苏州话，或每周只有 40 小时 GPU 时间？"}]},
@@ -65,6 +65,15 @@
        {"type": "no_lookup", "turn": 0},
        {"type": "looked_up", "turn": 1, "project": "dialect-asr"},
        {"type": "answer", "turn": 1, "question": "回答是否说基线字错率（CER）是 31%？"}]},
+
+    {"id": "ambiguous-project", "category": "ambiguous",
+     "extra_memories": [
+       {"key": "g_ctx_eval", "project": "garden-app", "kind": "context", "days_ago": 4,
+        "content": "garden-app 植物识别的准确率评测打算用 PlantNet 公开数据，还没选好用哪个子集当评测集。"}],
+     "sessions": [["评测集我还没想好用哪个，你帮我想想。"]],
+     "checks": [
+       {"type": "answer", "question": "用户没有说是哪个项目，而浇花小程序（植物识别）和方言识别都有评测集没定。回答是否向用户确认指的是哪个项目，或者明确分别针对两个项目给出建议，而不是不加说明地只当作其中一个？"},
+       {"type": "no_write"}]},
 
     {"id": "generic-code", "category": "no-lookup",
      "sessions": [["Python 里怎么把一个列表倒过来？"]],
