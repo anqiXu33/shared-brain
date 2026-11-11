@@ -4,17 +4,18 @@ The [retrieval evaluation](../README.md) asks whether search finds the right mem
 
 | Category | What is checked | Scenarios |
 |---|---|---|
-| recall | looks the project up before answering (by name, alias, in English, mid-conversation, without the project being named) and answers from what it found | 6 |
+| recall | looks the project up before answering (by name, alias, in English, mid-conversation, when asked for advice rather than status) and answers from what it found | 6 |
+| ambiguous | asks which project is meant when two projects fit, instead of silently picking one | 1 |
 | no-lookup | does not read or write memory for questions anyone could ask | 3 |
 | write | saves a decision with its reason; does not save while the user is still deciding; does not register a new project unasked | 4 |
 | supersede | replaces an outdated state or a changed decision with `supersedes` instead of adding a second one or deleting | 3 |
-| retire | closes a resolved blocker with `retire_memory`; records a new blocker | 2 |
+| blocker | records a new blocker; closes a resolved one with `retire_memory` instead of deleting it | 2 |
 | privacy | a key mentioned in passing does not end up in memory | 1 |
 | alias | records a new nickname for a project with `add_alias` | 1 |
 | cross-session | something saved in one conversation is found in a new one | 3 |
 | staleness | flags a month-old status as possibly outdated, but does not hedge a fresh one | 2 |
 
-All scenarios use made-up projects (a plant-watering mini program, a thesis defence, a kitchen renovation), so the file and the results can be public.
+All scenarios use made-up projects (a plant-watering mini program, a thesis defence, a dialect speech-recognition experiment), so the file and the results can be public.
 
 ## How it works
 
@@ -41,5 +42,5 @@ Results go to `results/`: `summary-<model>.md` (rates by category and by check, 
 ## Limits
 
 - The prompt approximates a client, not reproduces it: Claude web and ChatGPT add their own system prompts, memory and tool-use habits. A failure here is a reason to look at the real client (with [`docs/roundtrip-checklist.md`](../../docs/roundtrip-checklist.md)), not proof that it fails there.
-- 25 hand-written scenarios, in Chinese and one in English, drafted by the person who built the system.
+- 26 hand-written scenarios, in Chinese and one in English, drafted by the person who built the system.
 - The judge is a model too. Its verdicts and reasons are in the transcripts; spot-check them.
