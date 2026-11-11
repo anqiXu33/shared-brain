@@ -8,6 +8,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "eval"))
+sys.path.insert(0, str(ROOT / "eval" / "behavior"))
 
 # server.py creates its clients at import time. Dummy values let the tests import it;
 # nothing in the unit tests talks to Supabase or OpenAI.

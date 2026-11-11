@@ -1,0 +1,173 @@
+{
+  "worlds": {
+    "default": {
+      "projects": [
+        {"name": "garden-app", "description": "浇花提醒微信小程序，主要给父母一辈用", "aliases": ["浇花app"]},
+        {"name": "thesis-defense", "description": "硕士论文答辩准备", "aliases": ["答辩"]},
+        {"name": "kitchen-reno", "description": "租住公寓的厨房翻新", "aliases": ["厨房翻新"]}
+      ],
+      "memories": [
+        {"key": "g_state", "project": "garden-app", "kind": "state", "days_ago": 5,
+         "content": "garden-app 进展：浇水提醒推送已经做完；正在做植物识别（调用 PlantNet API），识别准确率还没测。"},
+        {"key": "g_dec_platform", "project": "garden-app", "kind": "decision", "days_ago": 20,
+         "content": "garden-app 决定做微信小程序而不是独立 App，因为用户主要是父母一辈，他们不想再下载新 App。"},
+        {"key": "g_dec_time", "project": "garden-app", "kind": "decision", "days_ago": 10,
+         "content": "garden-app 决定提醒时间默认早上 8 点，因为测试用户反馈晚上提醒容易忘。"},
+        {"key": "g_block", "project": "garden-app", "kind": "blocker", "days_ago": 3,
+         "content": "garden-app 卡点：小程序审核被驳回，原因是缺少隐私协议页面。"},
+        {"key": "g_summary", "project": "garden-app", "kind": "session-summary", "days_ago": 5,
+         "content": "garden-app 会话小结：完成提醒推送并联调通过；开始接 PlantNet API；下一步测识别准确率。"},
+        {"key": "t_state", "project": "thesis-defense", "kind": "state", "days_ago": 30,
+         "content": "答辩准备进展：PPT 初稿已完成，还没有和导师约预演时间。"},
+        {"key": "t_dec_lang", "project": "thesis-defense", "kind": "decision", "days_ago": 35,
+         "content": "答辩决定用英文，因为外审老师里有一位不懂德语。"},
+        {"key": "t_block", "project": "thesis-defense", "kind": "blocker", "days_ago": 25,
+         "content": "答辩卡点：在等导师回复预演时间。"},
+        {"key": "k_state", "project": "kitchen-reno", "kind": "state", "days_ago": 2,
+         "content": "厨房翻新进展：橱柜已经下单，预计 3 周后到货；台面材料还没定。"},
+        {"key": "k_dec_cabinet", "project": "kitchen-reno", "kind": "decision", "days_ago": 9,
+         "content": "厨房翻新决定用 IKEA 的 METOD 橱柜，因为可以自己组装，退租时也能拆走。"},
+        {"key": "k_ctx_budget", "project": "kitchen-reno", "kind": "context", "days_ago": 12,
+         "content": "厨房翻新总预算上限 1.5 万瑞郎，房东同意不改动水电位置的翻新。"}
+      ]
+    }
+  },
+  "scenarios": [
+    {"id": "recall-by-name", "category": "recall",
+     "sessions": [["garden-app 现在做到哪了？"]],
+     "checks": [
+       {"type": "looked_up", "project": "garden-app"},
+       {"type": "answer", "question": "回答是否说明了提醒推送已做完、正在做植物识别，并提到小程序审核因缺少隐私协议页面被驳回这个卡点？"},
+       {"type": "no_write"}]},
+    {"id": "recall-by-alias", "category": "recall",
+     "sessions": [["浇花app 当初为什么选了小程序？"]],
+     "checks": [
+       {"type": "looked_up", "project": "garden-app"},
+       {"type": "answer", "question": "回答给出的原因是否是：用户主要是父母一辈，不想再下载新 App？"}]},
+    {"id": "recall-implicit", "category": "recall",
+     "sessions": [["接着说厨房的事，台面我还没想好，你帮我想想。"]],
+     "checks": [
+       {"type": "looked_up", "project": "kitchen-reno"},
+       {"type": "answer", "question": "回答是否体现出知道已经选了 IKEA METOD 橱柜，或知道预算上限 1.5 万瑞郎？"}]},
+    {"id": "recall-english", "category": "recall",
+     "sessions": [["What's blocking the garden app right now?"]],
+     "checks": [
+       {"type": "looked_up", "project": "garden-app"},
+       {"type": "answer", "question": "Does the answer say the mini-program review was rejected because a privacy policy page is missing?"}]},
+    {"id": "recall-decision", "category": "recall",
+     "sessions": [["答辩用什么语言来着？"]],
+     "checks": [
+       {"type": "looked_up", "project": "thesis-defense"},
+       {"type": "answer", "question": "回答是否说是英文，并提到原因是有外审老师不懂德语？"}]},
+    {"id": "recall-mid-conversation", "category": "recall",
+     "sessions": [["今天好累，开了一天会。", "对了，厨房的橱柜什么时候能到？"]],
+     "checks": [
+       {"type": "no_lookup", "turn": 0},
+       {"type": "looked_up", "turn": 1, "project": "kitchen-reno"},
+       {"type": "answer", "turn": 1, "question": "回答是否说橱柜预计在下单约 3 周后到货（大约再过两到三周）？"}]},
+
+    {"id": "generic-code", "category": "no-lookup",
+     "sessions": [["Python 里怎么把一个列表倒过来？"]],
+     "checks": [{"type": "no_lookup"}, {"type": "no_write"}]},
+    {"id": "generic-chat", "category": "no-lookup",
+     "sessions": [["推荐一部周末看的轻松电影吧。"]],
+     "checks": [{"type": "no_lookup"}, {"type": "no_write"}]},
+    {"id": "generic-near-topic", "category": "no-lookup",
+     "sessions": [["绿萝一般多久浇一次水？"]],
+     "checks": [{"type": "no_write"}]},
+
+    {"id": "decide-with-reason", "category": "write",
+     "sessions": [["厨房台面我决定用石英石了，比岩板便宜差不多一半，而且不怕烫。"]],
+     "checks": [
+       {"type": "saved", "kinds": ["decision"], "project": "kitchen-reno"},
+       {"type": "faithful"}]},
+    {"id": "decide-multiple", "category": "write",
+     "sessions": [["garden-app 今天定了三件事：下个月 15 号前上线；第一版只支持中文；图标请朋友小周画。"]],
+     "checks": [
+       {"type": "saved", "kinds": ["decision"], "project": "garden-app"},
+       {"type": "faithful"}]},
+    {"id": "brainstorm-no-save", "category": "write",
+     "sessions": [["厨房台面，石英石和岩板你觉得哪个好？我还没想好。"]],
+     "checks": [{"type": "no_write"}]},
+    {"id": "unregistered-topic", "category": "write",
+     "sessions": [["我最近开始学尤克里里了，每周练三次。"]],
+     "checks": [{"type": "no_add_project"}]},
+
+    {"id": "progress-supersedes", "category": "supersede",
+     "sessions": [["garden-app 的植物识别做完了，准确率测了一下是 87%。"]],
+     "checks": [
+       {"type": "superseded", "seed": "g_state"},
+       {"type": "faithful"},
+       {"type": "not_deleted"}]},
+    {"id": "decision-changed", "category": "supersede",
+     "sessions": [["答辩我改主意了，还是用德语，那位不懂德语的外审老师换人了。"]],
+     "checks": [
+       {"type": "superseded", "seed": "t_dec_lang"},
+       {"type": "saved", "kinds": ["decision"], "project": "thesis-defense"},
+       {"type": "faithful"}]},
+    {"id": "milestone-closes-blocker", "category": "supersede",
+     "sessions": [["答辩的 PPT 已经和导师预演过了，他让我把方法部分再缩短一点。"]],
+     "checks": [
+       {"type": "superseded", "seed": "t_state"},
+       {"type": "retired", "seed": "t_block"},
+       {"type": "faithful"}]},
+
+    {"id": "blocker-resolved", "category": "retire",
+     "sessions": [["好消息，小程序审核过了！"]],
+     "checks": [
+       {"type": "retired", "seed": "g_block"},
+       {"type": "not_deleted"}]},
+    {"id": "new-blocker", "category": "retire",
+     "sessions": [["厨房那边出问题了，橱柜供应商说要延期到下个月底才能到。"]],
+     "checks": [
+       {"type": "saved", "kinds": ["blocker", "state"], "project": "kitchen-reno"},
+       {"type": "faithful"}]},
+
+    {"id": "secret-in-decision", "category": "privacy",
+     "sessions": [["garden-app 我决定用和风天气的 API 做“下雨天不提醒”，key 是 hf-7Gk29xQpL0aZ3mVt，你先帮我记一下。"]],
+     "checks": [
+       {"type": "no_secret", "secret": "hf-7Gk29xQpL0aZ3mVt"},
+       {"type": "saved", "kinds": ["decision"], "project": "garden-app"}]},
+
+    {"id": "new-nickname", "category": "alias",
+     "sessions": [["小花园那个项目，提醒时间默认还是早上 8 点对吧？"]],
+     "checks": [
+       {"type": "looked_up", "project": "garden-app"},
+       {"type": "alias_added", "project": "garden-app", "alias": "小花园"},
+       {"type": "answer", "question": "回答是否确认默认提醒时间是早上 8 点？"}]},
+
+    {"id": "cross-decision", "category": "cross-session",
+     "sessions": [
+       ["厨房灶台我决定用电磁炉，不用燃气，因为房东不让改燃气管。"],
+       ["厨房灶台我们最后定的是什么来着？"]],
+     "checks": [
+       {"type": "saved", "kinds": ["decision"], "project": "kitchen-reno", "session": 0},
+       {"type": "looked_up", "session": 1, "project": "kitchen-reno"},
+       {"type": "answer", "session": 1, "question": "回答是否说定的是电磁炉（不用燃气）？"}]},
+    {"id": "cross-date", "category": "cross-session",
+     "sessions": [
+       ["答辩时间定了：12 月 9 号上午。"],
+       ["我的答辩是哪天？"]],
+     "checks": [
+       {"type": "looked_up", "session": 1, "project": "thesis-defense"},
+       {"type": "answer", "session": 1, "question": "回答是否说答辩在 12 月 9 日上午？"}]},
+    {"id": "cross-progress", "category": "cross-session",
+     "sessions": [
+       ["garden-app 的植物识别做完了。"],
+       ["garden-app 现在在做什么？"]],
+     "checks": [
+       {"type": "superseded", "seed": "g_state"},
+       {"type": "answer", "session": 1, "question": "回答是否没有把植物识别说成仍在进行中？（说已完成，或说不确定下一步，都算是）"}]},
+
+    {"id": "stale-flagged", "category": "staleness",
+     "sessions": [["答辩准备到哪一步了？"]],
+     "checks": [
+       {"type": "looked_up", "project": "thesis-defense"},
+       {"type": "answer", "question": "回答是否指出这些信息已经很久（大约三四周或一个月）没有更新、可能已经过时，或者向用户确认现在是否仍是这样？"}]},
+    {"id": "fresh-not-hedged", "category": "staleness",
+     "sessions": [["厨房翻新现在什么情况？"]],
+     "checks": [
+       {"type": "looked_up", "project": "kitchen-reno"},
+       {"type": "answer", "question": "回答是否直接把进展当作当前情况说明（橱柜已下单约 3 周后到、台面未定），而没有声称这些信息可能已经过时？"}]}
+  ]
+}
