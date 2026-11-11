@@ -1,0 +1,22 @@
+name: Live round trip
+
+# Started by hand (Actions > Live round trip > Run workflow), e.g. after Render has deployed a change.
+# Runs tests/roundtrip_live.py against the deployed server: save, find, supersede, correct, retire,
+# delete, all inside the `roundtrip-check` project.
+# Needs the repository secret SHARED_BRAIN_MCP_URL = https://<service>.onrender.com/<MCP_SECRET_PATH>
+on:
+  workflow_dispatch:
+
+jobs:
+  roundtrip:
+    name: Remember, recall, correct, withdraw (deployed server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Round trip
+        env:
+          SHARED_BRAIN_MCP_URL: ${{ secrets.SHARED_BRAIN_MCP_URL }}
+        run: python tests/roundtrip_live.py
