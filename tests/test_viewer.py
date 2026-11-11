@@ -3,6 +3,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
+import freshness
 import viewer
 
 TOKEN = "t" * 32
@@ -153,6 +154,7 @@ def test_projects_and_project_memories_with_version_counts():
     assert set(by_id) == {MID, NEW}
     assert by_id[NEW]["versions"] == 1 and by_id[MID]["versions"] == 0
     assert "embedding" not in by_id[NEW]
+    assert data["stale_days"] == freshness.STALE_DAYS  # the page marks old states with the server's threshold
 
 
 def test_pagination_reads_past_1000_rows(monkeypatch):

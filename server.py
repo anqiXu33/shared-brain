@@ -13,6 +13,7 @@
   DEDUP_THRESHOLD            去重阈值，默认 0.9
   ALLOWED_PROJECTS           已被 projects 表取代（迁移 005）；只在该表还不存在时作为后备白名单
   VIEWER_TOKEN               可选；设了才开启只读网页 /viewer（至少 24 个字符）
+  STALE_DAYS                 可选，默认 14；state / blocker 多少天没更新就在 project_brief 里标"可能过时"
   PORT                       可选，默认 8000
 """
 import difflib
@@ -30,6 +31,7 @@ from postgrest.exceptions import APIError
 from pydantic import BeforeValidator
 from supabase import create_client
 
+import freshness
 import icons
 import viewer
 
@@ -390,11 +392,16 @@ def project_brief(project: str, max_decisions: int = 5, max_logs: int = 5) -> di
     before answering "what did we decide" or "where were we", instead of several separate searches.
     Only active memories are included (superseded or retired ones are left out).
 
+    State and blocker entries carry days_since_update, and possibly_stale: true once nobody has
+    updated them for a while (STALE_DAYS, default 14). Treat a possibly_stale entry as "last known",
+    not "current": tell the user how old it is and ask whether it still holds before building on it.
+    `notes` spells out these warnings; mention them to the user rather than leaving them out.
+
     project: registered name or alias.
     max_decisions / max_logs: how many of the newest decisions and logs to include.
     Returns: {"project", "state": [...], "blockers": [...], "decisions": [...],
               "last_session_summary": {...} | None, "logs": [...], "context": [...],
-              "counts": {kind: n}, "last_updated": iso timestamp | None}.
+              "counts": {kind: n}, "last_updated": iso timestamp | None, "notes": [str, ...]}.
     """
     project = _resolve_project(project)
     res = (db.table("memories").select(COLUMNS).eq("project", project)
@@ -404,17 +411,22 @@ def project_brief(project: str, max_decisions: int = 5, max_logs: int = 5) -> di
     by_kind: dict[str, list[dict]] = {}
     for r in rows:
         by_kind.setdefault(r["kind"], []).append(r)
+    now = datetime.now(UTC)
+    state = freshness.mark(by_kind.get("state", []), now)
+    blockers = freshness.mark(by_kind.get("blocker", []), now)
+    last_updated = rows[0]["updated_at"] if rows else None
     summaries = by_kind.get("session-summary", [])
     return {
         "project": project,
-        "state": by_kind.get("state", []),
-        "blockers": by_kind.get("blocker", []),
+        "state": state,
+        "blockers": blockers,
         "decisions": by_kind.get("decision", [])[:max_decisions],
         "last_session_summary": summaries[0] if summaries else None,
         "logs": by_kind.get("log", [])[:max_logs],
         "context": by_kind.get("context", []),
         "counts": {k: len(v) for k, v in sorted(by_kind.items())},
-        "last_updated": rows[0]["updated_at"] if rows else None,
+        "last_updated": last_updated,
+        "notes": freshness.notes(state, blockers, last_updated, now),
     }
 
 
