@@ -9,7 +9,7 @@ The [retrieval evaluation](../README.md) asks whether search finds the right mem
 | no-lookup | does not read or write memory for questions anyone could ask | 3 |
 | write | saves a decision with its reason; does not save while the user is still deciding; does not register a new project unasked | 4 |
 | supersede | replaces an outdated state or a changed decision with `supersedes` instead of adding a second one or deleting | 3 |
-| retire | closes a resolved blocker with `retire_memory`; records a new blocker | 2 |
+| blocker | records a new blocker; closes a resolved one with `retire_memory` instead of deleting it | 2 |
 | privacy | a key mentioned in passing does not end up in memory | 1 |
 | alias | records a new nickname for a project with `add_alias` | 1 |
 | cross-session | something saved in one conversation is found in a new one | 3 |

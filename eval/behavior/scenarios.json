@@ -121,12 +121,12 @@
        {"type": "retired", "seed": "t_block"},
        {"type": "faithful"}]},
 
-    {"id": "blocker-resolved", "category": "retire",
+    {"id": "blocker-resolved", "category": "blocker",
      "sessions": [["好消息，小程序审核过了！"]],
      "checks": [
        {"type": "retired", "seed": "g_block"},
        {"type": "not_deleted"}]},
-    {"id": "new-blocker", "category": "retire",
+    {"id": "new-blocker", "category": "blocker",
      "sessions": [["方言识别那边出问题了，集群这周维护，GPU 要等到下周三才能用。"]],
      "checks": [
        {"type": "saved", "kinds": ["blocker", "state"], "project": "dialect-asr"},
