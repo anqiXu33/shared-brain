@@ -26,6 +26,8 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+import freshness
+
 log = logging.getLogger("viewer")
 
 COOKIE = "sb_viewer"
@@ -161,7 +163,7 @@ def make_routes(db, token: str | None, embed: Callable[[str], list[float]] | Non
                 versions[h["memory_id"]] += 1
         for m in memories:
             m["versions"] = versions.get(m["id"], 0)
-        return _json({"project": name, "now": _now_iso(), "memories": memories})
+        return _json({"project": name, "now": _now_iso(), "stale_days": freshness.STALE_DAYS, "memories": memories})
 
     def history(request: Request):
         memory_id = request.path_params["id"]
@@ -307,6 +309,7 @@ header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px so
 .entry.inactive{background:transparent}
 .entry.inactive .text{color:var(--muted)}
 .entry .status{font-size:12.5px;color:var(--muted);margin-top:6px}
+.entry .stale{color:var(--k-session-summary)}
 .entry .links{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px}
 .linkbtn{background:none;border:0;padding:0;color:var(--focus);cursor:pointer;font-size:13px}
 .versions{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
@@ -351,7 +354,7 @@ const KIND = {"state":"进展","decision":"决策","blocker":"卡点","context":
               "session-summary":"会话小结"};
 const ORDER = ["state","blocker","decision","session-summary","log","context"];
 const S = {projects:[], project:null, memories:[], byId:new Map(), now:"", kinds:new Set(),
-           history:false, text:"", ranked:null};
+           staleDays:null, history:false, text:"", ranked:null};
 
 function el(tag, attrs, ...kids){
   const e = document.createElement(tag);
@@ -389,6 +392,10 @@ function entry(m, opts){
   node.append(meta);
   if (m.superseded_by) node.append(el("div", {class:"status"}, "已被替代 " + when(m.valid_until || m.updated_at)));
   else if (!live) node.append(el("div", {class:"status"}, "已失效 " + when(m.valid_until)));
+  else if (opts.age){
+    const days = Math.floor((Date.parse(S.now) - Date.parse(m.updated_at)) / 86400000);
+    if (days >= S.staleDays) node.append(el("div", {class:"status stale"}, days + " 天没更新，可能已经过时"));
+  }
 
   const links = el("div", {class:"links"});
   if (m.superseded_by) links.append(el("button", {class:"linkbtn", type:"button",
@@ -429,12 +436,12 @@ function jump(id){
 function brief(){
   const live = S.memories.filter(active);
   const of = k => live.filter(m => m.kind === k);
-  const sect = (title, rows, empty, cls) => el("section", {class:cls || null}, el("h3", null, title),
-    rows.length ? rows.map(m => entry(m)) : el("p", {class:"empty"}, empty));
+  const sect = (title, rows, empty, cls, opts) => el("section", {class:cls || null}, el("h3", null, title),
+    rows.length ? rows.map(m => entry(m, opts)) : el("p", {class:"empty"}, empty));
   const summary = of("session-summary").slice(0, 1);
   return el("div", {class:"brief"},
-    sect("现在在哪", of("state"), "还没有记录进展。", "now"),
-    sect("卡点", of("blocker"), "没有未解决的卡点。"),
+    sect("现在在哪", of("state"), "还没有记录进展。", "now", {age:true}),
+    sect("卡点", of("blocker"), "没有未解决的卡点。", null, {age:true}),
     sect("最近的决策", of("decision").slice(0, 5), "还没有记录决策。"),
     sect("上次会话", summary, "还没有会话小结。"));
 }
@@ -521,7 +528,7 @@ async function openProject(name){
     const data = await api("/viewer/api/projects/" + encodeURIComponent(name));
     if (S.project !== name) return;
     S.memories = data.memories.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-    S.now = data.now; S.byId = new Map(data.memories.map(m => [m.id, m]));
+    S.now = data.now; S.staleDays = data.stale_days; S.byId = new Map(data.memories.map(m => [m.id, m]));
     renderAll();
   } catch (e) {
     document.getElementById("main").replaceChildren(el("p", {class:"error"}, e.message));

@@ -2,6 +2,7 @@
 import asyncio
 import json
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from postgrest.exceptions import APIError
@@ -64,8 +65,9 @@ class FakeQuery:
                 row = {"created_at": "t", "aliases": [], **self.payload}
             else:
                 assert self.payload["project"] in {p["name"] for p in self.db.projects}, "foreign key"
+                now = server._now()
                 row = {"id": str(uuid.uuid4()), "superseded_by": None, "valid_until": None,
-                       "created_at": "t", "updated_at": "t", **self.payload}
+                       "created_at": now, "updated_at": now, **self.payload}
             table.append(row)
             return FakeResult([row])
         if self.op == "update":
@@ -253,8 +255,8 @@ def test_project_brief_groups_active_memories_by_kind(fake):
     server.save_memory("summary old", "p", "test", kind="session-summary")
     server.save_memory("summary new", "p", "test", kind="session-summary")
     server.save_memory("other project", "other", "test", kind="state")
-    for r in fake.rows:  # make updated_at distinct so ordering is meaningful
-        r["updated_at"] = f"t{fake.rows.index(r):03d}"
+    for i, r in enumerate(fake.rows):  # distinct, recent timestamps so ordering is meaningful
+        r["updated_at"] = ago(minutes=100 - i)
 
     brief = call_tool("project_brief", {"project": "Pee", "max_decisions": 3})
     assert brief["project"] == "p"
@@ -270,7 +272,50 @@ def test_project_brief_groups_active_memories_by_kind(fake):
 def test_project_brief_empty_project(fake):
     brief = server.project_brief("other")
     assert brief["state"] == [] and brief["last_session_summary"] is None
-    assert brief["counts"] == {} and brief["last_updated"] is None
+    assert brief["counts"] == {} and brief["last_updated"] is None and brief["notes"] == []
+
+
+def ago(days=0, minutes=0):
+    t = datetime.now(UTC) - timedelta(days=days, minutes=minutes)
+    return t.isoformat()  # "+00:00", the way Supabase returns timestamps
+
+
+def test_project_brief_flags_old_states_and_blockers(fake):
+    """A state or blocker untouched for STALE_DAYS is marked, so the assistant does not present it as current."""
+    ids = {}
+    for name, kind in [("fresh state", "state"), ("old state", "state"), ("old blocker", "blocker"),
+                       ("old decision", "decision")]:
+        ids[name] = server.save_memory(name, "p", "test", kind=kind)["memory"]["id"]
+    ages = {"fresh state": 2, "old state": server.freshness.STALE_DAYS, "old blocker": 40, "old decision": 90}
+    for r in fake.rows:
+        r["updated_at"] = ago(days=ages[r["content"]], minutes=1)
+
+    brief = call_tool("project_brief", {"project": "p"})
+    state = {m["content"]: m for m in brief["state"]}
+    assert state["fresh state"]["days_since_update"] == 2 and "possibly_stale" not in state["fresh state"]
+    assert state["old state"]["days_since_update"] == server.freshness.STALE_DAYS
+    assert state["old state"]["possibly_stale"] is True
+    assert brief["blockers"][0]["possibly_stale"] is True and brief["blockers"][0]["days_since_update"] == 40
+    # decisions record what was chosen; they are not "current status", so they are never flagged
+    assert "possibly_stale" not in brief["decisions"][0] and "days_since_update" not in brief["decisions"][0]
+    assert len(brief["notes"]) == 2
+    assert brief["notes"][0].startswith("1 of 2 state entries") and f"oldest: {server.freshness.STALE_DAYS}" \
+        in brief["notes"][0]
+    assert brief["notes"][1].startswith("1 of 1 blocker entries") and "oldest: 40" in brief["notes"][1]
+
+
+def test_project_brief_notes_a_quiet_project(fake):
+    server.save_memory("only a decision", "p", "test", kind="decision")
+    fake.rows[0]["updated_at"] = ago(days=30, minutes=1)
+    assert server.project_brief("p")["notes"] == [
+        "Nothing has been saved for this project in 30 days. Work may have happened that the memory "
+        "does not know about."]
+
+
+def test_project_brief_recent_project_has_no_notes(fake):
+    server.save_memory("state now", "p", "test", kind="state")
+    server.save_memory("blocker now", "p", "test", kind="blocker")
+    assert server.project_brief("p")["notes"] == []
 
 
 # ---------- project registry ----------

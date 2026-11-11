@@ -27,6 +27,7 @@
 - **Hybrid search**: pgvector semantic search plus pg_trgm keyword matching, merged with RRF.
 - **Typed memories with history**: new states supersede old ones instead of overwriting them.
 - **Duplicate-aware**: near-duplicates go back to the assistant to decide.
+- **Knows when it may be out of date**: a state or blocker untouched for two weeks is flagged, so the assistant asks instead of presenting it as current.
 - **Session summaries without asking**: a Claude Code `Stop` hook keeps each session's summary up to date.
 - **A page for people**: a read-only web viewer at `/viewer`, phone-friendly.
 
@@ -103,7 +104,7 @@ Check it with the MCP Inspector (`npx @modelcontextprotocol/inspector`) at `http
 | `retire_memory` | Mark an entry as no longer valid. Hidden, not deleted. |
 | `search_memory` | Hybrid search within one project. |
 | `recent_memories` | Latest changes, newest first. |
-| `project_brief` | One call for the whole picture: current state, open blockers, latest decisions, last session summary. |
+| `project_brief` | One call for the whole picture: current state, open blockers, latest decisions, last session summary. States and blockers not updated for `STALE_DAYS` (default 14) are flagged `possibly_stale`, with a plain-language note. |
 | `delete_memory` | Remove something that was wrong from the start. |
 | `list_projects` | Registered projects with a one-line description and aliases each. |
 | `add_project` | Register a new project, optionally with aliases. Rejects badly formed names and asks first when a similar name exists (`scai-lab` vs `scai`). |
@@ -143,6 +144,7 @@ Intervals and an off switch are environment variables, listed at the top of the 
 |---|---|
 | The server never runs an LLM | The assistant already has the context, so judgement calls (like duplicates) go back to it. |
 | Typed memories (`kind`) | Decisions, states and blockers age differently. |
+| Staleness flags on states and blockers only | They describe the present, which changes in conversations that never save anything. A decision or a log stays true as a record of what happened. |
 | Supersede, don't overwrite | Search shows what is true now; how you got there stays queryable. |
 | Vector + keyword search | Embeddings do find exact names and short Chinese queries, but often rank them lower; keyword matching pulls them to the top (see Evaluation). |
 | Project registry | A table with a foreign key from every memory, so assistants can't split one project into three spellings. New projects are added by a tool call, not by editing env vars. |
@@ -165,6 +167,10 @@ Caveats: a small set, one user's data, and the queries were drafted while lookin
 
 Building the evaluation also found a bug. On short queries, many memories get exactly the same keyword score, and the search broke those ties arbitrarily, so which of them got the keyword boost changed from run to run. Migration 004 breaks ties by vector distance; afterwards the live search matched the offline reproduction on 52 of 52 queries. Code and how to run it: [`eval/`](eval/README.md).
 
+### Does the assistant actually use it?
+
+Good retrieval does not help if the assistant never calls it, or saves a second copy instead of superseding. [`eval/behavior/`](eval/behavior/README.md) runs a model with the same instructions and tool descriptions as my clients against a private in-memory copy of the store, on 25 scripted scenarios: looking things up before answering (and not for unrelated questions), saving decisions with their reasons, superseding and retiring instead of duplicating or deleting, keeping keys out of memory, recording a new nickname, finding in a new conversation what was saved in an earlier one, and flagging a month-old status. Checks are rules on the tool calls and the final memory, plus a judge model for answer content and for whether saved memories contain only what the user said. Each scenario runs several times; rates come with Wilson intervals.
+
 ## Why I built this
 
 I use Claude for thinking, ChatGPT for second opinions and Claude Code for the actual work, and none of them talk to each other. Now project state that Claude Code saves late at night is there the next morning when I ask Claude web "what's waiting on my decision?"
@@ -184,6 +190,9 @@ I use Claude for thinking, ChatGPT for second opinions and Claude Code for the a
 - [x] Project registry in the database instead of an env var (migration 005)
 - [x] Project aliases, so any assistant resolves a nickname to the right project (migration 006)
 - [x] Read-only web viewer
+- [x] Staleness flags in `project_brief` and the viewer
+- [x] Live round-trip check against the deployed server, and a by-hand checklist per client
+- [x] Behaviour evaluation: does the assistant look up, supersede, retire and keep secrets out
 - [ ] Later: OAuth instead of a secret path
 
 ## Tests and CI
@@ -195,6 +204,8 @@ Every push runs [GitHub Actions](.github/workflows/ci.yml):
 - **Viewer tests**: login, cookie flags, CSP, pagination past 1000 rows, and that every route only reads.
 - **Hook tests**: run the `Stop` hook as a subprocess the way Claude Code does: when it asks, that it never asks twice in a row, project detection, the off switch, bad input. The installer is tested against existing settings files: other hooks and settings kept, idempotent, invalid JSON left alone, clean uninstall.
 - **Docker**: builds the image, starts it with dummy credentials, and runs the MCP handshake and `tools/list` against it.
+- **Round trip**: [`tests/roundtrip_live.py`](tests/roundtrip_live.py) saves, finds, supersedes, corrects, retires and deletes memories in a `roundtrip-check` project. CI runs it against the real server app over HTTP with a fake database; *Actions > Live round trip > Run workflow* runs it against the deployed server (secret `SHARED_BRAIN_MCP_URL`). Whether each assistant really looks up, supersedes and retires is checked by hand with [`docs/roundtrip-checklist.md`](docs/roundtrip-checklist.md).
+- **Behaviour evaluation code**: the scenario file is validated, the sandbox runs the real tools, and a whole run goes through with a scripted model and stub API clients.
 
 Locally:
 
@@ -210,6 +221,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres pytest
 - [Caricalia/mcp-brain](https://github.com/Caricalia/mcp-brain): cross-client architecture
 - [rnblanco/supa-brain](https://github.com/rnblanco/supa-brain): tool design
 - [open-brain-server](https://github.com/Bobby-cell-commits/open-brain-server): dedup and pruning ideas
+- [garrytan/gbrain](https://github.com/garrytan/gbrain): telling the assistant what the memory may not know, and verifying memory in the actual client
 
 ## Repository
 
