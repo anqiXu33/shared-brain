@@ -3,6 +3,7 @@ real tools in memory, the checks, and a whole run with a scripted model instead 
 import inspect
 import json
 import re
+from datetime import date
 
 import grade
 import pytest
@@ -221,3 +222,20 @@ def test_adapter_stops_a_runaway_tool_loop(monkeypatch):
     model.client = Obj(messages=Obj(create=lambda **kw: forever))
     events = model.turn("sys", [], "hi", [], run_tool_stub)
     assert [e["type"] for e in events] == ["tool"] * 3 + ["step_limit"]
+
+
+def test_faithful_judge_knows_today_and_the_date_rule():
+    """Without today's date the judge cannot tell a correct "next Wednesday" -> date conversion
+    from an invented date."""
+    prompts = []
+
+    class Recorder:
+        def complete(self, prompt):
+            prompts.append(prompt)
+            return '{"verdict": "yes", "reason": "ok"}'
+
+    saved = tool("save_memory", {"content": "dialect-asr 卡点：集群维护，GPU 2026-11-18 恢复",
+                                 "project": "dialect-asr"},
+                 {"status": "saved", "memory": {"kind": "blocker", "project": "dialect-asr"}})
+    assert grade.faithful(one_turn(saved, text("记下了")), None, Recorder())[0] is True
+    assert f"Today is {date.today():%A %Y-%m-%d}" in prompts[0] and "relative date" in prompts[0]

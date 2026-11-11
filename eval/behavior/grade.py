@@ -12,6 +12,7 @@ in this run" (e.g. `faithful` when nothing was saved) and is left out of the rat
 import json
 import math
 import re
+from datetime import date
 
 LOOKUPS = {"project_brief", "search_memory", "recent_memories"}
 WRITES = {"save_memory", "update_memory", "retire_memory", "delete_memory", "add_project", "add_alias"}
@@ -154,9 +155,13 @@ def faithful(run, sb, judge):
                 for text in _written_texts([r]):
                     verdicts.append(ask_judge(judge, (
                         "Does this memory contain ONLY facts that the user stated or that appear in what the "
-                        "assistant read from memory (no invented reasons, numbers, names or dates), and is it "
-                        "understandable on its own, without the conversation? Rewording and summarising are fine.\n\n"
-                        "User's messages so far:\n" + "\n".join(f"- {u}" for u in said) +
+                        "assistant read from memory (no invented reasons, consequences, numbers, names or dates), "
+                        "and is it understandable on its own, without the conversation? Rewording and summarising "
+                        "are fine. The memory will be read weeks later, so a relative date the user gave "
+                        "(\"next Wednesday\", \"the 15th of next month\") must be written as the calendar date it "
+                        "means, counted from today: a correct conversion is not invented, and a relative date left "
+                        f"as it is makes the memory not understandable on its own. Today is {date.today():%A %Y-%m-%d}."
+                        "\n\nUser's messages so far:\n" + "\n".join(f"- {u}" for u in said) +
                         "\n\nWhat the assistant read from memory:\n" + ("\n".join(read) or "(nothing)") +
                         f"\n\nMemory written:\n{text}")))
     if not verdicts:
