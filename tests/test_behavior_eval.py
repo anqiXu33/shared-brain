@@ -62,7 +62,7 @@ def test_sandbox_runs_the_real_tools_and_restores_the_server():
 
         unknown = sb.call("save_memory", {"content": "x", "project": "ukulele", "source": "claude-web"})
         assert "Unknown project" in unknown["error"] and json.loads(Sandbox.text(unknown))["error"]
-        assert sb.project_of("厨房翻新") == "kitchen-reno" and sb.project_of("nope") is None
+        assert sb.project_of("方言识别") == "dialect-asr" and sb.project_of("nope") is None
     assert server.db is real_db
 
 
@@ -90,7 +90,7 @@ def test_looked_up_needs_the_lookup_before_the_answer():
         brief = tool("project_brief", {"project": "浇花app"}, {})
         assert grade.looked_up(one_turn(text("我查一下"), brief, text("在做识别")), sb, None, project="garden-app")[0]
         assert not grade.looked_up(one_turn(text("在做识别"), brief), sb, None)[0]  # looked up only afterwards
-        assert not grade.looked_up(one_turn(brief, text("…")), sb, None, project="kitchen-reno")[0]
+        assert not grade.looked_up(one_turn(brief, text("…")), sb, None, project="dialect-asr")[0]
         err = {"type": "tool", "record": {"name": "project_brief", "input": {"project": "x"}, "error": "Unknown"}}
         assert not grade.looked_up(one_turn(err, text("…")), sb, None)[0]
 

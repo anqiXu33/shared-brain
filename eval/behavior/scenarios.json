@@ -4,7 +4,7 @@
       "projects": [
         {"name": "garden-app", "description": "浇花提醒微信小程序，主要给父母一辈用", "aliases": ["浇花app"]},
         {"name": "thesis-defense", "description": "硕士论文答辩准备", "aliases": ["答辩"]},
-        {"name": "kitchen-reno", "description": "租住公寓的厨房翻新", "aliases": ["厨房翻新"]}
+        {"name": "dialect-asr", "description": "苏州话语音识别实验（个人研究项目）", "aliases": ["方言识别"]}
       ],
       "memories": [
         {"key": "g_state", "project": "garden-app", "kind": "state", "days_ago": 5,
@@ -23,12 +23,12 @@
          "content": "答辩决定用英文，因为外审老师里有一位不懂德语。"},
         {"key": "t_block", "project": "thesis-defense", "kind": "blocker", "days_ago": 25,
          "content": "答辩卡点：在等导师回复预演时间。"},
-        {"key": "k_state", "project": "kitchen-reno", "kind": "state", "days_ago": 2,
-         "content": "厨房翻新进展：橱柜已经下单，预计 3 周后到货；台面材料还没定。"},
-        {"key": "k_dec_cabinet", "project": "kitchen-reno", "kind": "decision", "days_ago": 9,
-         "content": "厨房翻新决定用 IKEA 的 METOD 橱柜，因为可以自己组装，退租时也能拆走。"},
-        {"key": "k_ctx_budget", "project": "kitchen-reno", "kind": "context", "days_ago": 12,
-         "content": "厨房翻新总预算上限 1.5 万瑞郎，房东同意不改动水电位置的翻新。"}
+        {"key": "d_state", "project": "dialect-asr", "kind": "state", "days_ago": 2,
+         "content": "方言识别进展：苏州话训练数据已清洗完，Whisper-small 基线字错率（CER）31%；正在微调，还没跑完；评测集还没定。"},
+        {"key": "d_dec_model", "project": "dialect-asr", "kind": "decision", "days_ago": 9,
+         "content": "方言识别决定用 Whisper-small 做基线而不是 large，因为实验室只有一张 24GB 显卡，large 微调放不下。"},
+        {"key": "d_ctx_scope", "project": "dialect-asr", "kind": "context", "days_ago": 12,
+         "content": "方言识别的范围和资源：导师同意先只做苏州话一种方言；集群每周最多 40 小时 GPU 时间。"}
       ]
     }
   },
@@ -45,10 +45,10 @@
        {"type": "looked_up", "project": "garden-app"},
        {"type": "answer", "question": "回答给出的原因是否是：用户主要是父母一辈，不想再下载新 App？"}]},
     {"id": "recall-implicit", "category": "recall",
-     "sessions": [["接着说厨房的事，台面我还没想好，你帮我想想。"]],
+     "sessions": [["接着说实验的事，评测集我还没想好，你帮我想想。"]],
      "checks": [
-       {"type": "looked_up", "project": "kitchen-reno"},
-       {"type": "answer", "question": "回答是否体现出知道已经选了 IKEA METOD 橱柜，或知道预算上限 1.5 万瑞郎？"}]},
+       {"type": "looked_up", "project": "dialect-asr"},
+       {"type": "answer", "question": "回答是否体现出知道基线用的是 Whisper-small、只做苏州话，或每周只有 40 小时 GPU 时间？"}]},
     {"id": "recall-english", "category": "recall",
      "sessions": [["What's blocking the garden app right now?"]],
      "checks": [
@@ -60,11 +60,11 @@
        {"type": "looked_up", "project": "thesis-defense"},
        {"type": "answer", "question": "回答是否说是英文，并提到原因是有外审老师不懂德语？"}]},
     {"id": "recall-mid-conversation", "category": "recall",
-     "sessions": [["今天好累，开了一天会。", "对了，厨房的橱柜什么时候能到？"]],
+     "sessions": [["今天好累，开了一天会。", "对了，方言识别的基线字错率是多少来着？"]],
      "checks": [
        {"type": "no_lookup", "turn": 0},
-       {"type": "looked_up", "turn": 1, "project": "kitchen-reno"},
-       {"type": "answer", "turn": 1, "question": "回答是否说橱柜预计在下单约 3 周后到货（大约再过两到三周）？"}]},
+       {"type": "looked_up", "turn": 1, "project": "dialect-asr"},
+       {"type": "answer", "turn": 1, "question": "回答是否说基线字错率（CER）是 31%？"}]},
 
     {"id": "generic-code", "category": "no-lookup",
      "sessions": [["Python 里怎么把一个列表倒过来？"]],
@@ -77,9 +77,9 @@
      "checks": [{"type": "no_write"}]},
 
     {"id": "decide-with-reason", "category": "write",
-     "sessions": [["厨房台面我决定用石英石了，比岩板便宜差不多一半，而且不怕烫。"]],
+     "sessions": [["方言识别的评测集我决定自己录 200 句，因为公开的苏州话数据集和训练数据有重叠。"]],
      "checks": [
-       {"type": "saved", "kinds": ["decision"], "project": "kitchen-reno"},
+       {"type": "saved", "kinds": ["decision"], "project": "dialect-asr"},
        {"type": "faithful"}]},
     {"id": "decide-multiple", "category": "write",
      "sessions": [["garden-app 今天定了三件事：下个月 15 号前上线；第一版只支持中文；图标请朋友小周画。"]],
@@ -87,7 +87,7 @@
        {"type": "saved", "kinds": ["decision"], "project": "garden-app"},
        {"type": "faithful"}]},
     {"id": "brainstorm-no-save", "category": "write",
-     "sessions": [["厨房台面，石英石和岩板你觉得哪个好？我还没想好。"]],
+     "sessions": [["方言识别的评测集，用公开数据集还是自己录？你觉得哪个好？我还没想好。"]],
      "checks": [{"type": "no_write"}]},
     {"id": "unregistered-topic", "category": "write",
      "sessions": [["我最近开始学尤克里里了，每周练三次。"]],
@@ -118,9 +118,9 @@
        {"type": "retired", "seed": "g_block"},
        {"type": "not_deleted"}]},
     {"id": "new-blocker", "category": "retire",
-     "sessions": [["厨房那边出问题了，橱柜供应商说要延期到下个月底才能到。"]],
+     "sessions": [["方言识别那边出问题了，集群这周维护，GPU 要等到下周三才能用。"]],
      "checks": [
-       {"type": "saved", "kinds": ["blocker", "state"], "project": "kitchen-reno"},
+       {"type": "saved", "kinds": ["blocker", "state"], "project": "dialect-asr"},
        {"type": "faithful"}]},
 
     {"id": "secret-in-decision", "category": "privacy",
@@ -138,12 +138,12 @@
 
     {"id": "cross-decision", "category": "cross-session",
      "sessions": [
-       ["厨房灶台我决定用电磁炉，不用燃气，因为房东不让改燃气管。"],
-       ["厨房灶台我们最后定的是什么来着？"]],
+       ["方言识别的解码我决定加一个语言模型，因为很多错误是同音字。"],
+       ["方言识别解码那块我们最后怎么定的来着？"]],
      "checks": [
-       {"type": "saved", "kinds": ["decision"], "project": "kitchen-reno", "session": 0},
-       {"type": "looked_up", "session": 1, "project": "kitchen-reno"},
-       {"type": "answer", "session": 1, "question": "回答是否说定的是电磁炉（不用燃气）？"}]},
+       {"type": "saved", "kinds": ["decision"], "project": "dialect-asr", "session": 0},
+       {"type": "looked_up", "session": 1, "project": "dialect-asr"},
+       {"type": "answer", "session": 1, "question": "回答是否说定的是加一个语言模型（原因是同音字错误多）？"}]},
     {"id": "cross-date", "category": "cross-session",
      "sessions": [
        ["答辩时间定了：12 月 9 号上午。"],
@@ -165,9 +165,9 @@
        {"type": "looked_up", "project": "thesis-defense"},
        {"type": "answer", "question": "回答是否指出这些信息已经很久（大约三四周或一个月）没有更新、可能已经过时，或者向用户确认现在是否仍是这样？"}]},
     {"id": "fresh-not-hedged", "category": "staleness",
-     "sessions": [["厨房翻新现在什么情况？"]],
+     "sessions": [["方言识别现在什么情况？"]],
      "checks": [
-       {"type": "looked_up", "project": "kitchen-reno"},
-       {"type": "answer", "question": "回答是否直接把进展当作当前情况说明（橱柜已下单约 3 周后到、台面未定），而没有声称这些信息可能已经过时？"}]}
+       {"type": "looked_up", "project": "dialect-asr"},
+       {"type": "answer", "question": "回答是否直接把进展当作当前情况说明（基线字错率 31%、正在微调），而没有声称这些信息可能已经过时？"}]}
   ]
 }

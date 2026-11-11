@@ -14,7 +14,7 @@ The [retrieval evaluation](../README.md) asks whether search finds the right mem
 | cross-session | something saved in one conversation is found in a new one | 3 |
 | staleness | flags a month-old status as possibly outdated, but does not hedge a fresh one | 2 |
 
-All scenarios use made-up projects (a plant-watering mini program, a thesis defence, a kitchen renovation), so the file and the results can be public.
+All scenarios use made-up projects (a plant-watering mini program, a thesis defence, a dialect speech-recognition experiment), so the file and the results can be public.
 
 ## How it works
 
